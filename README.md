@@ -2,7 +2,10 @@
 Sensitivity Analysis of KBA Ecosystem Criteria. A Study Project in Collaboration with NatureServe.
 
 # Members 
-[Christy Sandberg](https://github.com/ericrnutt5), [Eric Nutt](https://github.com/ericrnutt5), [Lana Kurakina](https://github.com/S-Kur), [Elsa Culler - mentor](https://github.com/eculler)
+[Christy Sandberg](https://github.com/csandberg303)
+[Eric Nutt](https://github.com/ericrnutt5)
+[Lana Kurakina](https://github.com/S-Kur)
+[Elsa Culler - mentor](https://github.com/eculler)
 
 # Purpose of the project
 We will perform a sensitivity analysis of the current thresholds set by the IUCN, looking to see what KBAs can be found for each ecosystem type at 100%, 75%, 50% and 25% of the current thresholds.
