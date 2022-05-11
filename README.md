@@ -1,4 +1,4 @@
-# ea-2022-kba-sensitivity
+# ea-2022-kba-sensitivity-analysis
 Sensitivity Analysis of KBA Ecosystem Criteria. A Study Project in Collaboration with NatureServe.
 
 # Members 
@@ -6,6 +6,9 @@ Sensitivity Analysis of KBA Ecosystem Criteria. A Study Project in Collaboration
 * [Eric Nutt](https://github.com/ericrnutt5)
 * [Lana Kurakina](https://github.com/S-Kur)
 * [Elsa Culler - mentor](https://github.com/eculler)
+
+# License
+We are using the standard MIT license.
 
 # Purpose of the project
 Systematic Conservation Planning is a field of research that uses GIS and Python for spatial analysis, with the purpose of strategically identifying areas that meet a given conservation goal.
@@ -25,7 +28,11 @@ Another factor we will look at is the natural spatial pattern of each ecosystem 
 Perhaps a lower threshold would more effectively trigger KBA identification in linear ecosystems, such as those found along rivers and coasts. If so, spatial pattern might be a characteristic to be included in future IUCN Guidelines.
 
 # Installation instructions
+### Installation of earth analytics python environment
 We are using earth-analytics-enviornment provided and maintained by Earth Lab, University of Colorado. Please follow this [link](https://www.earthdatascience.org/workshops/setup-earth-analytics-python/) for installation instructions.
+
+### Installation of marxanconpy python package:
+*
 
 # Required Tools and Packages
 * ArcGIS and ArcMarxan Toolbox, Version 2.0.2; Available at https://aproposinfosystems.com/
@@ -42,7 +49,7 @@ We are using earth-analytics-enviornment provided and maintained by Earth Lab, U
 * Processed shapefiles for each indiviadual ecosystem, contain network of hexes showing spatial distribution of an ecosystem, unique hex IDs, and quantity of raster cells (of the initial dataset) which got a hexagon overlaps.
 
 # Data Storage
-* Currently data is stored in our shared Google Drive. User will have to download data and save it in earth-analytics/data/natureserve
+* EDIT TO INCLUDE NEW FOLDER WHEN ADDED Currently data is stored in our shared Google Drive. User will have to download data and save it in earth-analytics/data/natureserve
 
 
 # Workflow
