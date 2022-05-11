@@ -7,6 +7,9 @@ Sensitivity Analysis of KBA Ecosystem Criteria. A Study Project in Collaboration
 * [Lana Kurakina](https://github.com/S-Kur)
 * [Elsa Culler - mentor](https://github.com/eculler)
 
+# License
+We are using the standard MIT license.
+
 # Purpose of the project
 Systematic Conservation Planning is a field of research that uses GIS and Python for spatial analysis, with the purpose of strategically identifying areas that meet a given conservation goal.
 
@@ -46,7 +49,7 @@ We are using earth-analytics-enviornment provided and maintained by Earth Lab, U
 * Processed shapefiles for each indiviadual ecosystem, contain network of hexes showing spatial distribution of an ecosystem, unique hex IDs, and quantity of raster cells (of the initial dataset) which got a hexagon overlaps.
 
 # Data Storage
-* Currently data is stored in our shared Google Drive. User will have to download data and save it in earth-analytics/data/natureserve
+* EDIT TO INCLUDE NEW FOLDER WHEN ADDED Currently data is stored in our shared Google Drive. User will have to download data and save it in earth-analytics/data/natureserve
 
 
 # Workflow
