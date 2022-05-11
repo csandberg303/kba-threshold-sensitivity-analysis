@@ -1,4 +1,4 @@
-# ea-2022-kba-sensitivity
+# ea-2022-kba-sensitivity-analysis
 Sensitivity Analysis of KBA Ecosystem Criteria. A Study Project in Collaboration with NatureServe.
 
 # Members 
@@ -26,6 +26,8 @@ Perhaps a lower threshold would more effectively trigger KBA identification in l
 
 # Installation instructions
 We are using earth-analytics-enviornment provided and maintained by Earth Lab, University of Colorado. Please follow this [link](https://www.earthdatascience.org/workshops/setup-earth-analytics-python/) for installation instructions.
+
+## Installation of marxanconpy python package:
 
 # Required Tools and Packages
 * ArcGIS and ArcMarxan Toolbox, Version 2.0.2; Available at https://aproposinfosystems.com/
