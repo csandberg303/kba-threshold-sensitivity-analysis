@@ -25,9 +25,11 @@ Another factor we will look at is the natural spatial pattern of each ecosystem 
 Perhaps a lower threshold would more effectively trigger KBA identification in linear ecosystems, such as those found along rivers and coasts. If so, spatial pattern might be a characteristic to be included in future IUCN Guidelines.
 
 # Installation instructions
+### Installation of earth analytics python environment
 We are using earth-analytics-enviornment provided and maintained by Earth Lab, University of Colorado. Please follow this [link](https://www.earthdatascience.org/workshops/setup-earth-analytics-python/) for installation instructions.
 
-## Installation of marxanconpy python package:
+### Installation of marxanconpy python package:
+*
 
 # Required Tools and Packages
 * ArcGIS and ArcMarxan Toolbox, Version 2.0.2; Available at https://aproposinfosystems.com/
