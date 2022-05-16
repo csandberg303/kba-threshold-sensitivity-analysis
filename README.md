@@ -27,8 +27,7 @@ We are using earth-analytics-enviornment provided and maintained by Earth Lab, U
 To install the marxanconpy python package, complete the steps below:
 * activate your earth-analytics-conda environment
 * install igraph and wxPython libraries
-* AFTER that install marxanconpy
-NOTE -- There will be a small error message with a warning in the end, but it was installed successfully.
+* AFTER that install marxanconpy -- NOTE -- There will be a small error message with a warning in the end, but it was installed successfully.
 
 Here is the command line script necessary for the installation above:
 * conda activate earth-analytics-python
