@@ -57,4 +57,4 @@ Here is the command line script necessary for the installation above:
 # Workflow
 
 
-![Workflow](https://github.com/S-Kur/ea-2022-kba-sensitivity/blob/main/assests/figures/KBA_Analysis_Workflow.jpg)
+![Workflow](https://github.com/csandberg303/kba-threshold-sensitivity-analysis/blob/main/assests/figures/KBA_Analysis_Workflow.jpg)
