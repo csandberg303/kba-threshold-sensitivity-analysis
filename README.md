@@ -52,7 +52,7 @@ Here is the command line script necessary for the installation above:
 * Processed shapefiles for each indiviadual ecosystem, contain network of hexes showing spatial distribution of an ecosystem, unique hex IDs, and quantity of raster cells (of the initial dataset) which got a hexagon overlaps.
 
 # Data Storage
-* EDIT TO INCLUDE NEW FOLDER WHEN ADDED Currently data is stored in our shared Google Drive. User will have to download data and save it in earth-analytics/data/natureserve
+* Sample data to run the workflow is provided in the assets > data > raster & shape hex folders. Rasters for three ecosystems and 7mi2 hex shapefile overlays of the three ecosystem rasters are made available there for the process of testing the workflow. These are all of the necessary files to run the marxanconpy workflow.
 
 
 # Workflow
