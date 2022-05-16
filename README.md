@@ -24,7 +24,18 @@ In addition to providing information specific to our question of how the IUCN th
 We are using earth-analytics-enviornment provided and maintained by Earth Lab, University of Colorado. Please follow this [link](https://www.earthdatascience.org/workshops/setup-earth-analytics-python/) for installation instructions.
 
 ### Installation of marxanconpy python package:
-*
+To install the marxanconpy python package, complete the steps below:
+* activate your earth-analytics-conda environment
+* install igraph and wxPython libraries
+* AFTER that install marxanconpy
+NOTE -- There will be a small error message with a warning in the end, but it was installed successfully.
+
+Here is the command line script necessary for the installation above:
+* conda activate earth-analytics-python
+* pip install igraph
+* pip install wxPython
+* pip install marxanconpy
+
 
 # Required Tools and Packages
 * ArcGIS and ArcMarxan Toolbox, Version 2.0.2; Available at https://aproposinfosystems.com/
