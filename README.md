@@ -8,7 +8,7 @@ Sensitivity Analysis of KBA Ecosystem Criteria. A Study Project in Collaboration
 * [Elsa Culler - mentor](https://github.com/eculler)
 
 # License
-We are using the standard MIT license.
+We are using the standard Apache 2.0 License.
 
 # Purpose of the project
 Systematic Conservation Planning is a field of research that uses GIS and Python for spatial analysis, with the purpose of strategically identifying areas that meet a given conservation goal. This occurs by bringing collected data together into an iterative workflow to define areas that successfully meet the required criteria. Depending on the conservation goal, data can be analyzed from a diverse range of sources including species populations, vegetative land cover, nesting sites, seasonal feeding patterns or even the location of historic cultural heritage sites. Results of the analysis are shared with key stakeholders and decision makers, enabling them to efficiently direct limited resources towards solutions with the lowest costs and greatest chance for long term ecological success.
@@ -57,4 +57,4 @@ Here is the command line script necessary for the installation above:
 # Workflow
 
 
-![Workflow](https://github.com/ericrnutt5/kba-threshold-sensitivity-analysis/blob/main/assests/figures/KBA_Analysis_Workflow.jpg)
+![Workflow](https://github.com/csandberg303/kba-threshold-sensitivity-analysis/blob/main/assets/figures/KBA_Analysis_Workflow.jpg)
