@@ -1,4 +1,4 @@
-# ea-2022-kba-sensitivity-analysis
+# kba-threshold-sensitivity-analysis
 Sensitivity Analysis of KBA Ecosystem Criteria. A Study Project in Collaboration with NatureServe.
 
 # Members 
