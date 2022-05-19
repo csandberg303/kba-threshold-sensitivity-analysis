@@ -1,3 +1,5 @@
+[![DOI](https://zenodo.org/badge/482376890.svg)](https://zenodo.org/badge/latestdoi/482376890)
+
 # kba-threshold-sensitivity-analysis
 Sensitivity Analysis of KBA Ecosystem Criteria. A Study Project in Collaboration with NatureServe.
 
