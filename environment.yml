@@ -1,0 +1,10 @@
+name: base
+channels:
+  - defaults
+dependencies:
+  - conda
+  - python=3.7
+  - menuinst
+  - console_shortcut
+  - powershell_shortcut
+prefix: C:\Users\cwsnd\miniconda3
