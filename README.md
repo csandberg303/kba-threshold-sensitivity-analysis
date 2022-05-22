@@ -59,4 +59,4 @@ Here is the command line script necessary for the installation above:
 # Workflow
 
 
-![Workflow](https://github.com/csandberg303/kba-threshold-sensitivity-analysis/blob/main/assets/figures/KBA_Analysis_Workflow.jpg)
+![Workflow](https://github.com/csandberg303/kba-threshold-sensitivity-analysis/blob/main/assets/figures/workflow_v2.png)
