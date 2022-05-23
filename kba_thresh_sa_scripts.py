@@ -60,7 +60,7 @@ def create_cluz_targets_files(eco, thresholds_test, eco_info, path):
             target_df.drop(["sq_km", "iucn_th"], axis = 1, inplace = True)
             outpath = os.path.join(path, 'targets_' +str(val) + '.csv')
             target_df.to_csv(outpath)
-     return csv
+     return
 
 
 def get_marxan_input_files(eco):
@@ -91,7 +91,7 @@ def get_marxan_input_files(eco):
         fileinfo_df = pd.read_csv(io.StringIO(fileinfo.decode('utf-8')))
         filename = file
         output = fileinfo_df.to_csv(file)
-     return files
+     return
 
 
 
