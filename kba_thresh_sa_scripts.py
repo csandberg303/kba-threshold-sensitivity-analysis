@@ -18,7 +18,7 @@ import numpy as np
 import pandas as pd
 
 
-# In[2]:
+# In[1]:
 
 
 # FORMULA TO GET LANA'S INPUT FILES FROM THE REPO TO LOCAL DIRECTORY
@@ -48,7 +48,9 @@ def get_marxan_input_files(eco, files_to_get):
      inputfile_ls = files_to_get
 
      for file in inputfile_ls:
-        urltext = "https://raw.githubusercontent.com/csandberg303/kba-threshold-sensitivity-analysis/main/assets/data/marxan_input/"
+        urltext = ("https://raw.githubusercontent.com/csandberg303/"
+                   "kba-threshold-sensitivity-analysis/main/assets/data/"
+                   "marxan_input/")
         url = urltext + eco + "/" + file
         # downloading the info from file stored on github
         fileinfo = requests.get(url).content
@@ -57,13 +59,14 @@ def get_marxan_input_files(eco, files_to_get):
                                  index_col=False).squeeze("columns")
         filename = file
         output = fileinfo_df.to_csv(file, index=False)
+        print(eco + ": " + file + " successfully copied from url")
      return output
 
-# write formula to get shapefile from 'shp-hex' folder of local 'kba-thres-sa'
+# write formula to get shapefile from 'shp_hex' folder of local 'kba_thres_sa'
 # directory (will this work universally, if users were to save shp files here
 # en masse so that the function picks out the needed files and moves to the
 # time-stamped working directory with the other input files? Currently I've
-# just manually copied over Lana's shp files to this location (the use the
+# just manually copied over Lana's shp files to this location (they use the
 # naming convention 'eco_hex.shp')
 def get_pu_file(path, eco):
     """
@@ -74,8 +77,13 @@ def get_pu_file(path, eco):
     the abbreviated one word short name used for ecosystem
     """
     pu_file_ls = glob(os.path.join(path, eco + '_hex*'))
-    for file in pu_file_ls:
-        shutil.copy(file, os.getcwd())
+    if pu_file_ls == []:
+        print("no files found with expected name " + eco + "_hex??")
+    else:
+        for file in pu_file_ls:
+            shutil.copy(file, os.getcwd())
+            print(eco + ": "+ os.path.basename(file) + " copied successfully")
+
 
 
  # create function to write targets.csv files, for each threshold test value
@@ -123,6 +131,7 @@ def create_cluz_targets_files(eco, thresholds_test, eco_info, path):
             target_df.drop(["sq_km", "iucn_th"], axis = 1, inplace = True)
             outpath = os.path.join(path, 'targets_' +str(val) + '.csv')
             csv = target_df.to_csv(outpath)
+     print(eco + ": targets files created for each test threshold value")
      return csv
 
 
