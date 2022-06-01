@@ -47,6 +47,9 @@ Here is the command line script necessary for the installation above:
 * xarray
 * rioxarray
 
+### Running the Notebooks after installation of packages
+The workflow currently consists of two notebooks (along with a supporting notebook with functions).  A user would run the two in sequence, starting with '1-set_initial_directories.ipynb' followed by '2-continue_after_saving_shapefiles_to_dir.ipynb".  The purpose of the first notebook is to set up an initial working directory 'earth-analytics\data\kba_thresh_sa'.  Inside this directory is another directory 'shp_hex', which is where the planning unit shapefiles should be stored.  Currently the ask is for users to manually copy thier GIS-produced shapefiles to this 'shp_hex' directory between running the two notebooks.  The workflow then picks up in the second notebook, where functions will prepare the directories populated with input files needed for marxan analysis.
+
 # Data
 * Raster dataset featuring US ecosystems at 30 m spatial resolution, provided by NatureServe.
 * Shapefile with a network of 7 sq. mile hexagons covering North America, also provided by NatureServe.
@@ -57,6 +60,4 @@ Here is the command line script necessary for the installation above:
 
 
 # Workflow
-The workflow currently consists of two notebooks (along with a supporting notebook with functions).  A user would run the two in sequence, starting with '1-set_initial_directories.ipynb' followed by '2-continue_after_saving_shapefiles_to_dir.ipynb".  The purpose of the first notebook is to set up an initial working directory 'earth-analytics\data\kba_thresh_sa'.  Inside this directory is another directory 'shp_hex', which is where the planning unit shapefiles should be stored.  Currently the ask is for users to manually copy thier GIS-produced shapefiles to this 'shp_hex' directory between running the two notebooks.  The workflow then picks up in the second notebook, where functions will prepare the directories populated with input files needed for marxan analysis.
-
 ![Workflow](https://github.com/csandberg303/kba-threshold-sensitivity-analysis/blob/main/assets/figures/workflow_v2.png)
