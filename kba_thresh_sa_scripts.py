@@ -12,16 +12,19 @@ import requests
 import shutil
 from glob import glob
 
+# from qgis.core import *
+
 import earthpy as et
 import geopandas as gpd
 import numpy as np
 import pandas as pd
 
 
-# In[1]:
+# In[2]:
 
 
-# FORMULA TO GET LANA'S INPUT FILES FROM THE REPO TO LOCAL DIRECTORY
+# create function to get Lana's input files (created with ArcGIS) from the
+# repo to local directory
 def get_marxan_input_files(eco, files_to_get):
      """
      Currently this formula will find the input files Lana created using the
@@ -62,31 +65,87 @@ def get_marxan_input_files(eco, files_to_get):
         print(eco + ": " + file + " successfully copied from url")
      return output
 
-# write formula to get shapefile from 'shp_hex' folder of local 'kba_thres_sa'
-# directory (will this work universally, if users were to save shp files here
-# en masse so that the function picks out the needed files and moves to the
-# time-stamped working directory with the other input files? Currently I've
-# just manually copied over Lana's shp files to this location (they use the
-# naming convention 'eco_hex.shp')
-def get_pu_file(path, eco):
+
+# In[3]:
+
+
+# write formula to get the shapefile and rasters that have been saved to the
+#''kba_thres_sa/shp_hex' and 'kba_thres_sa/r_tif' local directories
+
+# Currently I've manually copied Lana's ArcGIS files to these locations, using
+# the naming convention 'eco.shp' for hexfiles and 'eco.tif for the rasters.
+
+# IN THE FUTURE, the .shp & .tif files may be created and placed in the
+# 'shp_hex' and 'r_tif' directories using code rather than ArcGIS, but this
+# 'get_source_files' formula will still function to copy the needed files into
+# the 'eco' directory when the 'eco/input' directories are created.
+def get_source_files(path, eco):
     """
     path : str
-    local directory where shapefiles are stored
+    local directory where the shapefiles or rasters are stored
 
     eco : str
     the abbreviated one word short name used for ecosystem
     """
-    pu_file_ls = glob(os.path.join(path, eco + '_hex*'))
-    if pu_file_ls == []:
-        print("no files found with expected name " + eco + "_hex??")
+    source_file_ls = glob(os.path.join(path, eco + '*'))
+    if source_file_ls == []:
+        print("no files found in " + path + "with expected name " + eco + "?")
     else:
-        for file in pu_file_ls:
+        for file in source_file_ls:
             shutil.copy(file, os.getcwd())
             print(eco + ": "+ os.path.basename(file) + " copied successfully")
 
 
+# In[4]:
 
- # create function to write targets.csv files, for each threshold test value
+
+# FUNCTION TO CREATE PU.DAT FILE
+# create df based on hexfile.shp
+# 3 columns - puid, cost & status
+# No. of rows to equal number of hex cells in the hexfile.shp
+# save as a csv .dat
+
+def create_pu_dat(eco, path):
+    """
+     To create the pu.dat file that stores information about planning units in
+     hex grid
+
+     Parameters
+     ----------
+     eco : str
+     name of ecosystem that will be analyzed by Marxan
+
+     path : str
+     local directory where 'hex_shp' directory is stored
+
+     -------
+     returned_data : the pu.dat input file
+
+    """
+
+    # open hex.shp file
+    shp_data_path = os.path.join(path, "hex_shp", eco + '.shp')
+    shp_layer = gpd.read_file(shp_data_path)
+
+    # Reproject CRS to ESPG 5070
+    shp_layer_5070 = shp_layer.to_crs(epsg='5070')
+
+    # create columns for 'pu_id', cost' (value = 1) and 'status' (value = 0)
+    shp_layer_5070.insert(0, 'pu_id', range(1, 1 + len(shp_layer_5070)))
+    shp_layer_5070["cost"] = 1
+    shp_layer_5070["status"] = 0
+
+    # create pu.dat file
+    pu_dat = shp_layer_5070[["pu_id", "cost", "status"]].set_index("pu_id")
+    output = pu_dat.to_csv('pu2.dat')
+    print(eco + ": pu.dat file successfully created")
+    return output
+
+
+# In[5]:
+
+
+# create function to write targets.csv files, for each threshold test value
 
 # NOT SURE IF THIS WILL ULTIMATELY BE NEEDED IN ITS CURRENT FORM, AS THE
 #TARGETS INPUT FILE MIGHT ONLY BE USED BY THE QGIS ADDIN CLUZ, RATHER THAN
@@ -135,7 +194,62 @@ def create_cluz_targets_files(eco, thresholds_test, eco_info, path):
      return csv
 
 
-# In[3]:
+# In[6]:
+
+
+# WRITE FUNCTION TO CREATE PUVSP.DAT & SPEC.DAT
+# (PUVSP_SPORDER.DAT not needed, as currently we are working with just one one
+# ecosystem at a time, rather than looking at mulitiple conservation features
+# in a single run)
+
+# find code to replicate the Zonal Histogram tool in QGIS
+# (Processing Toolbox > Raster Analysis > Zonal Histogram)
+# https://docs.qgis.org/3.22/en/docs/user_manual/processing_algs/qgis/
+# rasteranalysis.html#zonal-histogram
+# import processing processing.run("algorithm_id", {parameter_dictionary})
+
+# I think the 'import processing' code suggestion comes from pyQGIS, but I
+# don't think that is included with the earth-analytics-python-env??
+
+# Here's info on running pyQGIS in Jupyter
+# https://lerryws.xyz/posts/PyQGIS-in-Jupyter-Notebook
+
+# here's my initial guess at some of the pyQGIS code, using parameters copied
+# from the QGIS 'Zonal Histograms' log window -
+# from qgis.core import processing processing.run(
+#     "native:zonalhistogram", {
+#         'COLUMN_PREFIX' : '',
+#         'INPUT_RASTER' : 'F:/NatureServe/LanasData/raster/foothill_r.tif',
+#         'INPUT_VECTOR' : 'F:/NatureServe/LanasData/marxan_prep/foothill/pulayercws.shp',
+#         'OUTPUT' : 'F:/NatureServe/pulayerfeatures.shp',
+#         'RASTER_BAND' : 1
+#     })
+
+# the result will show the number of raster pixels within each hexgrid cell.
+
+# add new column, multiplying this pixel count by the raster pixel area
+# variable, to give the total extent of ecosystem within each individual
+# planning unit hex cell.
+# the pixel area can be determined by looking at the raster saved to the
+# 'source_data' directory in an earlier formula. Maybe a new function should
+# be written to get this value, and that function would be called within this
+# current 'create_puvsp_dat' function?
+# (our data's pixel area is 900, as 30m x 30m = 900 sq m/pixel. If the
+# pixelcount = 5, area = 4500, or 5 x 900)
+
+# use this table (dataframe?) as the source info for qmarxan 'export feature
+# files' function (WHICH WOULD ALSO CREATE THE SPEC.DAT FILE)
+
+# input parameters copied from QGIS 'export_features_files' log window -
+# Input parameters: {
+#     'FEAT_FIELDS' : ['7147'],
+#     'OUT_DIR' : 'F:\NatureServe\524 QM test\input',
+#     'PU_FIELD' : 'PUID',
+#     'PU_LAYER' : 'F:/NatureServe/pulayerfeatures.shp'
+# }
+
+
+# In[7]:
 
 
 # THESE FUNCTIONS ARE TAKEN/ADAPTED FROM QMARXAN TOOLBOX ALGORITHM CODE
@@ -240,115 +354,139 @@ def create_input_dat(dest, prop, scen_name):
     return output
 
 
-# In[4]:
+# # Write formula to create 'bound.dat' file
+# (# code below taken from 'qmarxan_toolbox_algorithm.py')
+#
+# # # Constants used to refer to parameters and outputs. They will be
+# # # used when calling the algorithm from another algorithm, or when
+# # # calling from the QGIS console.
+#
+# # PU_LAYER = 'PU_LAYER'
+# # PU_FIELD = 'PU_FIELD'
+# # BND_METHOD = 'BND_METHOD'
+# # BND_TREAT = 'BND_TREAT'
+# # BND_VALUE = 'BND_VALUE'
+# # CALC_FIELD = 'CALC_FIELD'
+# # CALC_METHOD = 'CALC_METHOD'
+# # TOL = 'TOL'
+# # OUT_DIR = 'OUT_DIR'
+#
+# # def create_bound_dat(???self, config???):
+# #         """
+# #         Here we define the inputs and output of the algorithm, along
+# #         with some other properties.
+# #         """
+# #         # pu layer
+# #         self.addParameter(
+# #                 self.PU_LAYER,
+# #                 self.tr('Planning unit layer (source for bound.dat file)'),
+# #                 [QgsProcessing.TypeVectorPolygon]
+# #             )
+# #         )
+# #         # pu id
+# #         self.addParameter(
+# #             QgsProcessingParameterField(
+# #                 self.PU_FIELD,
+# #                 self.tr('Planning unit id field'),
+# #                 parentLayerParameterName=self.PU_LAYER,
+# #                 type=QgsProcessingParameterField.Numeric
+# #             )
+# #         )
+# #         #
+# #         # advanced settings
+# #         #
+# #         #  bnd method
+# #         bndMethod = QgsProcessingParameterEnum(
+# #             self.BND_METHOD,
+# #             self.tr('Boundary method (how lengths between planning units will be set)'),
+# #             options = ["Single","Measured","Weighted","Field"],
+# #             defaultValue = 0
+# #         )
+# #         bndMethod.setFlags(bndMethod.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
+# #         self.addParameter(bndMethod)
+# #         # bnd treatment
+# #         bndTreatment = QgsProcessingParameterEnum(
+# #             self.BND_TREAT,
+# #             self.tr('Boundary treatment (how values for PUs on perimeter of study area will be set)'),
+# #             options = ["Full Value","Half Value","Exclude"],
+# #             defaultValue = 0
+# #         )
+# #         bndTreatment.setFlags(bndTreatment.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
+# #         self.addParameter(bndTreatment)
+# #         # single value
+# #         bndValue = QgsProcessingParameterNumber(
+# #             self.BND_VALUE,
+# #             self.tr('Boundary value (value for all boundaries regardless of measured length)'),
+# #             type=QgsProcessingParameterNumber.Integer,
+# #             minValue=0,
+# #             defaultValue=1,
+# #             optional=True
+# #         )
+# #         bndValue.setFlags(bndValue.flags() | QgsProcessingParameterDefinition.FlagAdvanced )
+# #         self.addParameter(bndValue)
+# #         # calculation field
+# #         calcField = QgsProcessingParameterField(
+# #             self.CALC_FIELD,
+# #             self.tr('Calculation field (field to weight or assign boundary lengths)'),
+# #             parentLayerParameterName=self.PU_LAYER,
+# #             type=QgsProcessingParameterField.Numeric,
+# #             optional = True
+# #         )
+# #         calcField.setFlags(calcField.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
+# #         self.addParameter(calcField)
+# #         # calculation method
+# #         calcMethod = QgsProcessingParameterEnum(
+# #             self.CALC_METHOD,
+# #             self.tr('Calculation method (how to assign boundary length if values between adjacent planning units differ)'),
+# #             options = ["Mean","Maximum","Minimum"],
+# #             defaultValue = 0,
+# #             optional = True
+# #         )
+# #         calcMethod.setFlags(calcMethod.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
+# #         self.addParameter(calcMethod)
+# #         # rounding precision
+# #         tolerance = QgsProcessingParameterEnum(
+# #             self.TOL,
+# #             self.tr('Export precision tolerance (in map units)'),
+# #             options = ["100","10","1","0.1","0.01","0.001","0.0001","0.00001"],
+# #             defaultValue = 3
+# #         )
+# #         tolerance.setFlags(tolerance.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
+# #         self.addParameter(tolerance)
+#
+# #         # select output folder
+# #         defDir = os.path.join(os.path.expanduser('~'),'marxanproj1','input')
+# #         self.addParameter(
+# #             QgsProcessingParameterFolderDestination(
+# #                 self.OUT_DIR,
+# #                 self.tr('Marxan input folder (place to write bound.dat file)'),
+# #                 defDir,
+# #                 optional=False
+# #             )
+# #         )
+# #
 
-
-# # try for bound.dat (code adapted from qmarxan)
-
-# # Constants used to refer to parameters and outputs. They will be
-# # used when calling the algorithm from another algorithm, or when
-# # calling from the QGIS console.
-
-# PU_LAYER = 'PU_LAYER'
-# PU_FIELD = 'PU_FIELD'
-# BND_METHOD = 'BND_METHOD'
-# BND_TREAT = 'BND_TREAT'
-# BND_VALUE = 'BND_VALUE'
-# CALC_FIELD = 'CALC_FIELD'
-# CALC_METHOD = 'CALC_METHOD'
-# TOL = 'TOL'
-# OUT_DIR = 'OUT_DIR'
-
-# def create_bound_dat(???self, config???):
-#         """
-#         Here we define the inputs and output of the algorithm, along
-#         with some other properties.
-#         """
-#         # pu layer
-#         self.addParameter(
-#                 self.PU_LAYER,
-#                 self.tr('Planning unit layer (source for bound.dat file)'),
-#                 [QgsProcessing.TypeVectorPolygon]
-#             )
-#         )
-#         # pu id
-#         self.addParameter(
-#             QgsProcessingParameterField(
-#                 self.PU_FIELD,
-#                 self.tr('Planning unit id field'),
-#                 parentLayerParameterName=self.PU_LAYER,
-#                 type=QgsProcessingParameterField.Numeric
-#             )
-#         )
-#         #
-#         # advanced settings
-#         #
-#         #  bnd method
-#         bndMethod = QgsProcessingParameterEnum(
-#             self.BND_METHOD,
-#             self.tr('Boundary method (how lengths between planning units will be set)'),
-#             options = ["Single","Measured","Weighted","Field"],
-#             defaultValue = 0
-#         )
-#         bndMethod.setFlags(bndMethod.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
-#         self.addParameter(bndMethod)
-#         # bnd treatment
-#         bndTreatment = QgsProcessingParameterEnum(
-#             self.BND_TREAT,
-#             self.tr('Boundary treatment (how values for PUs on perimeter of study area will be set)'),
-#             options = ["Full Value","Half Value","Exclude"],
-#             defaultValue = 0
-#         )
-#         bndTreatment.setFlags(bndTreatment.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
-#         self.addParameter(bndTreatment)
-#         # single value
-#         bndValue = QgsProcessingParameterNumber(
-#             self.BND_VALUE,
-#             self.tr('Boundary value (value for all boundaries regardless of measured length)'),
-#             type=QgsProcessingParameterNumber.Integer,
-#             minValue=0,
-#             defaultValue=1,
-#             optional=True
-#         )
-#         bndValue.setFlags(bndValue.flags() | QgsProcessingParameterDefinition.FlagAdvanced )
-#         self.addParameter(bndValue)
-#         # calculation field
-#         calcField = QgsProcessingParameterField(
-#             self.CALC_FIELD,
-#             self.tr('Calculation field (field to weight or assign boundary lengths)'),
-#             parentLayerParameterName=self.PU_LAYER,
-#             type=QgsProcessingParameterField.Numeric,
-#             optional = True
-#         )
-#         calcField.setFlags(calcField.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
-#         self.addParameter(calcField)
-#         # calculation method
-#         calcMethod = QgsProcessingParameterEnum(
-#             self.CALC_METHOD,
-#             self.tr('Calculation method (how to assign boundary length if values between adjacent planning units differ)'),
-#             options = ["Mean","Maximum","Minimum"],
-#             defaultValue = 0,
-#             optional = True
-#         )
-#         calcMethod.setFlags(calcMethod.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
-#         self.addParameter(calcMethod)
-#         # rounding precision
-#         tolerance = QgsProcessingParameterEnum(
-#             self.TOL,
-#             self.tr('Export precision tolerance (in map units)'),
-#             options = ["100","10","1","0.1","0.01","0.001","0.0001","0.00001"],
-#             defaultValue = 3
-#         )
-#         tolerance.setFlags(tolerance.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
-#         self.addParameter(tolerance)
-
-#         # select output folder
-#         defDir = os.path.join(os.path.expanduser('~'),'marxanproj1','input')
-#         self.addParameter(
-#             QgsProcessingParameterFolderDestination(
-#                 self.OUT_DIR,
-#                 self.tr('Marxan input folder (place to write bound.dat file)'),
-#                 defDir,
-#                 optional=False
-#             )
-#         )
+# FUNCTION TO CREATE PUVSP.DAT & SPEC.DAT
+# (PUVSP_SPORDER.DAT not needed, as currently we are looking at only one ecosystem at a time)
+#
+# * find code to replicate the Zonal Histogram tool in QGIS (Processing Toolbox > Raster Analysis > Zonal Histogram)
+# https://docs.qgis.org/3.22/en/docs/user_manual/processing_algs/qgis/rasteranalysis.html#zonal-histogram
+# import processing
+# processing.run("algorithm_id", {parameter_dictionary})
+#
+# I think this comes from pyQGIS, but I don't think that is included with the earth-analytics-python-env??
+#
+# Here's info on running pyQGIS in Jupyter
+# https://lerryws.xyz/posts/PyQGIS-in-Jupyter-Notebook
+#
+# here's my initial guess, using parameters copied from QGIS 'Zonal Histograms' log -
+# from qgis.core import processing
+# processing.run("native:zonalhistogram", { 'COLUMN_PREFIX' : '', 'INPUT_RASTER' : 'F:/NatureServe/LanasData/raster/foothill_r.tif', 'INPUT_VECTOR' : 'F:/NatureServe/LanasData/marxan_prep/foothill/pulayercws.shp', 'OUTPUT' : 'F:/NatureServe/pulayerfeatures.shp', 'RASTER_BAND' : 1 })
+#
+# * add column, multiplying pixel count by raster pixel area variable (our data's is 900, 30m x 30m = 900 sq m/pixel), this gives total extent of ecosystem within each individual planning unit hex of the hexfile.shp (ex. if pixelcount = 5, area = 4500, or 5 x 900)
+#
+# * use this as the source info for qmarxan 'export feature files' function
+# input parameters copied from QGIS -
+# Input parameters:
+# { 'FEAT_FIELDS' : ['7147'], 'OUT_DIR' : 'F:\\NatureServe\\524 QM test\\input', 'PU_FIELD' : 'PUID', 'PU_LAYER' : 'F:/NatureServe/pulayerfeatures.shp' }
+#
