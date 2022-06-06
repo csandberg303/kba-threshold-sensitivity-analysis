@@ -16,8 +16,12 @@ from glob import glob
 
 import earthpy as et
 import geopandas as gpd
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from rasterio.crs import CRS
+from rasterio.plot import plotting_extent
+import rioxarray as rxr
 
 
 # In[2]:
@@ -37,8 +41,8 @@ def get_marxan_input_files(eco, files_to_get):
      Parameters
      ----------
      eco : str
-     the abbreviated one word short name used for ecosystem, identifies a
-     subdirectory of the marxan_input directory
+     the abbreviated one word short name used for ecosystem being analyzed;
+     identifies a subdirectory of the timestamped marxan run directory
 
      files_to_get : list
      list of filenames to retrieve from the marxan_input/eco directory of
@@ -85,7 +89,9 @@ def get_source_files(path, eco):
     local directory where the shapefiles or rasters are stored
 
     eco : str
-    the abbreviated one word short name used for ecosystem
+    the abbreviated one word short name used for ecosystem being analyzed;
+    identifies a subdirectory of the timestamped marxan run directory
+
     """
     source_file_ls = glob(os.path.join(path, eco + '*'))
     if source_file_ls == []:
@@ -95,54 +101,168 @@ def get_source_files(path, eco):
             shutil.copy(file, os.getcwd())
             print(eco + ": "+ os.path.basename(file) + " copied successfully")
 
+    return print(eco + ": finished copying source files")
+
 
 # In[4]:
 
 
-# FUNCTION TO CREATE PU.DAT FILE
-# create df based on hexfile.shp
-# 3 columns - puid, cost & status
-# No. of rows to equal number of hex cells in the hexfile.shp
-# save as a csv .dat
+# set crs of shp and tif to ESPG 5070 and save as new files
 
-def create_pu_dat(eco, path):
+def set_source_files_crs (path, eco, espg='5070'):
     """
-     To create the pu.dat file that stores information about planning units in
-     hex grid
+    To set crs of shp and tif to ESPG 5070, add columns to shp and save as new
+    files
 
-     Parameters
-     ----------
-     eco : str
-     name of ecosystem that will be analyzed by Marxan
+    Parameters
+    ----------
+    path : str
+    path to local 'kba_thresh_sa' directory where 'hex_shp' and 'r_tif'
+    directories are stored
 
-     path : str
-     local directory where 'hex_shp' directory is stored
+    eco : str
+    the abbreviated one word short name used for ecosystem being analyzed;
+    identifies a subdirectory of the timestamped marxan run directory
 
-     -------
-     returned_data : the pu.dat input file
+    espg : str
+    espg number (we're using ESPG:5070)
+
+    -------
+    returned_data : updated shp and tif
+
 
     """
-
-    # open hex.shp file
+    # open the shp and tif files saved at given path
     shp_data_path = os.path.join(path, "hex_shp", eco + '.shp')
     shp_layer = gpd.read_file(shp_data_path)
 
-    # Reproject CRS to ESPG 5070
-    shp_layer_5070 = shp_layer.to_crs(epsg='5070')
+    tif_data_path = os.path.join(path, "r_tif", eco + '.tif')
+    tif_layer = rxr.open_rasterio(tif_data_path, masked=True).squeeze()
 
-    # create columns for 'pu_id', cost' (value = 1) and 'status' (value = 0)
-    shp_layer_5070.insert(0, 'pu_id', range(1, 1 + len(shp_layer_5070)))
-    shp_layer_5070["cost"] = 1
-    shp_layer_5070["status"] = 0
 
-    # create pu.dat file
-    pu_dat = shp_layer_5070[["pu_id", "cost", "status"]].set_index("pu_id")
-    output = pu_dat.to_csv('pu2.dat')
-    print(eco + ": pu.dat file successfully created")
+    # reproject CRS of shp
+    shp_layer_crs = shp_layer.to_crs(epsg=espg)
+    # change name of 'Unit_ID' column to 'PUID'
+
+    # reproject CRS of tif
+    # create a rasterio crs object
+    crs_espg = CRS.from_string('EPSG:' + espg)
+    # reproject tif using the crs object
+    tif_layer_crs = tif_layer.rio.reproject(crs_espg)
+
+    # create path that new tif file will be saved to
+    tif_layer_crs_path = os.path.join(os.getcwd(),
+                                      eco + "_espg_" + espg + ".tif")
+
+    # save the reprojected .shp and .tif files
+    output = (shp_layer_crs.to_file(eco + "_espg_" + espg + ".shp",
+                                    index=False),
+              tif_layer_crs.rio.to_raster(tif_layer_crs_path))
+
+    print(eco + ": finished set_source_files_crs")
     return output
 
 
 # In[5]:
+
+
+# function to create pu.dat file
+
+def create_pu_dat(eco, path):
+    """
+    To create the pu.dat file that stores information about planning units in
+    hex grid
+
+    Parameters
+    ----------
+    eco : str
+    the abbreviated one word short name used for ecosystem being analyzed;
+    identifies a subdirectory of the timestamped marxan run directory
+
+    path : str
+    local directory where 'hex_shp' directory is stored
+
+    -------
+    returned_data : the pu.dat input file
+
+    """
+
+    # open hex.shp file with set crs
+    shp_crs_path = glob(os.path.join(path, eco + '_espg_*.shp'))
+
+    # create df based on hexfile.shp
+    shp_crs_layer = gpd.read_file(shp_crs_path[0])
+
+    # create new column in .shp for 'id'
+    shp_crs_layer.insert(0, 'id', range(1, 1 + len(shp_crs_layer)))
+
+    # set values in column 'Cost' to 1, and column 'Status' to = 0
+    shp_crs_layer["Cost"] = 1
+    shp_crs_layer["Status"] = 0
+
+    # create pu.dat file
+    pu_dat = shp_crs_layer[["id", "Cost", "Status"]].set_index("id")
+    output = pu_dat.to_csv('pu.dat')
+    print(eco + ": pu.dat file successfully created")
+    return output
+
+
+# In[6]:
+
+
+# funtion to create spec.dat file
+
+def create_spec_dat(info_df, eco, prop=0.3, spf=1, minclump=False):
+    """
+    To create the spec.dat file, which stores information about ecosytem to be
+    analyzed in marxan run
+
+    Parameters
+    ----------
+    info_df : df
+    dataframe of ecosystem info, including 'Short_Name', 'US_km2' and
+    'Current_IUCN_TH' columns
+
+    eco : str
+    the abbreviated one word short name used for ecosystem being analyzed;
+    identifies a subdirectory of the timestamped marxan run directory
+
+    prop : float
+    The proportion of the total amount of the feature which must be included
+    in the solution; must be between 0 and 1 (tutorial suggests 0.3)
+
+    spf : int
+    species penalty factor
+
+    minclump : bool
+    determines if additional field 'target2' should be included in results,
+    to show the 'Minimum clump size for the representation of conservation
+    features in the reserve system'. Default set to 'False'.  If 'True',
+    'target2' column is added, with the minimum clump size calculated as the
+    ecosystem's extent in meters ('US_km2' * 1,000,000) by it's current IUCN
+    Threshold value ('Current_IUCN_TH' = .05 if CR or EN, or 0.10 if VU)
+    -------
+
+    returned_data : the spec.dat input file
+
+    """
+    # set columns of spec.dat, if minclump parameter is False
+    if minclump == False:
+        data = [{'id': 1, 'prop': prop, 'spf': 1, 'name': eco}]
+    # include add'l 'target2' column in file if minclump parameter is True
+    else:
+        target2 = info_df.at[eco,'Current_IUCN_TH'] * (
+            info_df.at[eco,'US_km2'] * 1000000)
+        data = [{'id': 1, 'prop': prop, 'target2': target2, 'spf': 1,
+                 'name': eco}]
+    # set index, and save file as 'spec.dat'
+    spec_dat = pd.DataFrame(data).set_index('id')
+    output = spec_dat.to_csv('spec.dat')
+    print(eco + ": spec.dat file successfully created")
+    return output
+
+
+# In[7]:
 
 
 # create function to write targets.csv files, for each threshold test value
@@ -152,104 +272,50 @@ def create_pu_dat(eco, path):
 # MARXAN/MARXANCONPY ITSELF
 
 def create_cluz_targets_files(eco, thresholds_test, eco_info, path):
-     """creates the targets.csv files needed for Marxan analysis
-     (?? only when using CLUZ add-in in QGIS ??).
+    """creates the targets.csv files needed for Marxan analysis
+    (?? only when using CLUZ add-in in QGIS ??).
 
-     Parameters
-     ----------
-     eco : str
-     name of ecosystem that will be analyzed by Marxan
+    Parameters
+    ----------
+    eco : str
+    the abbreviated one word short name used for ecosystem being analyzed;
+    identifies a subdirectory of the timestamped marxan run directory
 
-     thresholds_test : list
-     list of threshold values to be tested for each ecosystem
+    thresholds_test : list
+    list of threshold values to be tested for each ecosystem
 
-     eco_info : dataframe
-     source of info for each ecosystem, with columns 'OID' (Unique ID number),
-     'Name' (ecosystem name), Type (number representing RLE Status), Size of
-     Ecosystem (units of area measurement) and the Current IUCN Threshold
-     value, based upon ecosystem's RLE status
+    eco_info : dataframe
+    source of info for each ecosystem, with columns 'OID' (Unique ID number),
+    'Name' (ecosystem name), Type (number representing RLE Status), Size of
+    Ecosystem (units of area measurement) and the Current IUCN Threshold
+    value, based upon ecosystem's RLE status
 
-     path : filepath
-     filepath to ecosystem subdirectory where targets files will be saved
+    path : filepath
+    filepath to ecosystem subdirectory where targets files will be saved
 
-     Returns
-     -------
-     returned_data : csv
-     csv files are saved to ecosystem directories, one file for each threshold
-     value to be tested
-     """
-     for val in thresholds_test:
-            target_info = {'Id': [eco_info.loc[eco]['OID']],
-                           'Name': [eco],
-                           'Type': [eco_info.loc[eco]['Type']],
-                           'sq_km': [eco_info.loc[eco]['US_km2']],
-                           'iucn_th': [eco_info.loc[eco]['Current_IUCN_TH']]}
-            target_df = pd.DataFrame(data=target_info).set_index('Id')
-            target_df['Target'] = (target_df['sq_km'] * target_df['iucn_th'])
-            target_df['Target'] = (val * target_df['Target'])
-            target_df.drop(["sq_km", "iucn_th"], axis = 1, inplace = True)
-            outpath = os.path.join(path, 'targets_' +str(val) + '.csv')
-            csv = target_df.to_csv(outpath)
-     print(eco + ": targets files created for each test threshold value")
-     return csv
-
-
-# In[6]:
+    Returns
+    -------
+    returned_data : csv
+    csv files are saved to ecosystem directories, one file for each threshold
+    value to be tested
+    """
+    for val in thresholds_test:
+           target_info = {'Id': [eco_info.loc[eco]['OID']],
+                          'Name': [eco],
+                          'Type': [eco_info.loc[eco]['Type']],
+                          'sq_km': [eco_info.loc[eco]['US_km2']],
+                          'iucn_th': [eco_info.loc[eco]['Current_IUCN_TH']]}
+           target_df = pd.DataFrame(data=target_info).set_index('Id')
+           target_df['Target'] = (target_df['sq_km'] * target_df['iucn_th'])
+           target_df['Target'] = (val * target_df['Target'])
+           target_df.drop(["sq_km", "iucn_th"], axis = 1, inplace = True)
+           outpath = os.path.join(path, 'targets_' +str(val) + '.csv')
+           output = target_df.to_csv(outpath)
+    print(eco + ": targets files created for each test threshold value")
+    return output
 
 
-# WRITE FUNCTION TO CREATE PUVSP.DAT & SPEC.DAT
-# (PUVSP_SPORDER.DAT not needed, as currently we are working with just one one
-# ecosystem at a time, rather than looking at mulitiple conservation features
-# in a single run)
-
-# find code to replicate the Zonal Histogram tool in QGIS
-# (Processing Toolbox > Raster Analysis > Zonal Histogram)
-# https://docs.qgis.org/3.22/en/docs/user_manual/processing_algs/qgis/
-# rasteranalysis.html#zonal-histogram
-# import processing processing.run("algorithm_id", {parameter_dictionary})
-
-# I think the 'import processing' code suggestion comes from pyQGIS, but I
-# don't think that is included with the earth-analytics-python-env??
-
-# Here's info on running pyQGIS in Jupyter
-# https://lerryws.xyz/posts/PyQGIS-in-Jupyter-Notebook
-
-# here's my initial guess at some of the pyQGIS code, using parameters copied
-# from the QGIS 'Zonal Histograms' log window -
-# from qgis.core import processing processing.run(
-#     "native:zonalhistogram", {
-#         'COLUMN_PREFIX' : '',
-#         'INPUT_RASTER' : 'F:/NatureServe/LanasData/raster/foothill_r.tif',
-#         'INPUT_VECTOR' : 'F:/NatureServe/LanasData/marxan_prep/foothill/pulayercws.shp',
-#         'OUTPUT' : 'F:/NatureServe/pulayerfeatures.shp',
-#         'RASTER_BAND' : 1
-#     })
-
-# the result will show the number of raster pixels within each hexgrid cell.
-
-# add new column, multiplying this pixel count by the raster pixel area
-# variable, to give the total extent of ecosystem within each individual
-# planning unit hex cell.
-# the pixel area can be determined by looking at the raster saved to the
-# 'source_data' directory in an earlier formula. Maybe a new function should
-# be written to get this value, and that function would be called within this
-# current 'create_puvsp_dat' function?
-# (our data's pixel area is 900, as 30m x 30m = 900 sq m/pixel. If the
-# pixelcount = 5, area = 4500, or 5 x 900)
-
-# use this table (dataframe?) as the source info for qmarxan 'export feature
-# files' function (WHICH WOULD ALSO CREATE THE SPEC.DAT FILE)
-
-# input parameters copied from QGIS 'export_features_files' log window -
-# Input parameters: {
-#     'FEAT_FIELDS' : ['7147'],
-#     'OUT_DIR' : 'F:\NatureServe\524 QM test\input',
-#     'PU_FIELD' : 'PUID',
-#     'PU_LAYER' : 'F:/NatureServe/pulayerfeatures.shp'
-# }
-
-
-# In[7]:
+# In[8]:
 
 
 # THESE FUNCTIONS ARE TAKEN/ADAPTED FROM QMARXAN TOOLBOX ALGORITHM CODE
@@ -270,44 +336,44 @@ def formatAsME(inVal):
 
 
 # TO CREATE INPUT.DAT (LINES 128-183 OF ALGORITHM FILE)
-def create_input_dat(dest, prop, scen_name):
+def create_input_dat(dest, prop=0.5, scen_id=("eco_xyz")):
     """
-     To create the input.dat file that stores processing parameters
+    To create the input.dat file that stores processing parameters
 
-     Parameters
-     ----------
-     dest : str
-     directory input.dat file will be saved to
+    Parameters
+    ----------
+    dest : str
+    directory input.dat file will be saved to
 
-     prop : float
-     must be a number between 0 and 1; represents the proportion of PU to be
-     included in the initial reserve (default value is 0.5)
+    prop : float
+    must be a number between 0 and 1; represents the proportion of PU to be
+    included in the initial reserve (default value is 0.5)
 
-     scen_name : str
-     scenario name, to be included as ID on generated output files
+    scen_id : str
+    scenario id, info to be included as prefix on generated output files
 
-     other parameters will be added to replace the default initial values
-     that are included in the QMarxan code
+    other parameters will be added to replace the default initial values
+    that are included in the QMarxan code
 
-     -------
-     returned_data : the input.dat file
+    -------
+    returned_data : the input.dat file
 
     """
-    output = os.path.join(dest,'qm_input.dat')
+    output = os.path.join(dest,'input.dat')
     f = open(output, 'w')
     f.write("Input file for Annealing program.\n")
-    f.write('\n')
+#     f.write('\n')
     f.write('This file generated for KBA Threshold\n')
     f.write('Analysis project using code from\n')
     f.write('QMarxan Toolbox 2.0\n')
     f.write('created by Apropos Information Systems Inc.\n')
-    f.write('\n')
+#     f.write('\n')
     f.write("General Parameters\n")
     f.write("BLM 1\n") # Boundary Length Modifier
     f.write("PROP %s\n" % formatAsME(prop)) # Proportion of PU (or sub TARGET)
     f.write("RANDSEED -1\n") # Random seed number
     f.write("NUMREPS 100\n") # Num of repeat runs (or solutions)
-    f.write('\n')
+#     f.write('\n')
     f.write("Annealing Parameters\n")
     f.write("NUMITNS 1000000\n") # Num of iterations for annealing
     f.write("STARTTEMP %s\n" % formatAsME(-1.0)) # start temp for annealing
@@ -318,16 +384,16 @@ def create_input_dat(dest, prop, scen_name):
     f.write("COSTTHRESH %s\n" % formatAsME(0.0)) # cost threshold
     f.write("THRESHPEN1 %s\n" % formatAsME(0.0)) # size of cost thresh penalty
     f.write("THRESHPEN2 %s\n" % formatAsME(0.0)) # shp of cost thresh penalty
-    f.write("\n")
+#     f.write("\n")
     f.write("Input Files\n")
     f.write("INPUTDIR input\n") # name of dir containing input files
     f.write("SPECNAME spec.dat\n") # Conservation Feature File
     f.write("PUNAME pu.dat\n") # Planning Unit File
     f.write("PUVSPRNAME puvsp.dat\n") # PU vs Conservation Feature File
     f.write("BOUNDNAME bound.dat\n") # Boundary Length File
-    f.write("BLOCKDEFNAME blockdef.dat\n") # Block Definition File
-    f.write("MATRIXSPORDERNAME puvsp_sporder.dat\n") # PUVSPR ordered by SP
-    f.write("SCENNAME " + scen_name + "\n") # Scenario name for saved output
+#     f.write("BLOCKDEFNAME blockdef.dat\n") # Block Definition File
+#     f.write("MATRIXSPORDERNAME puvsp_sporder.dat\n") # PUVSPR ordered by SP
+    f.write("SCENNAME " + scen_id + "\n") # Scenario name for saved output
     f.write("SAVERUN 3\n") # Save each run (1-.dat, 2-.txt, 3-.csv)
     f.write("SAVEBEST 3\n") # Save the best run (1-.dat, 2-.txt, 3-.csv)
     f.write("SAVESUMMARY 3\n") # Save summary info (1-.dat, 2-.txt, 3-.csv)
@@ -341,7 +407,7 @@ def create_input_dat(dest, prop, scen_name):
     f.write("SAVESNAPFREQUENCY 0\n") # Frequency of snapshots if used
     f.write("SAVESOLUTIONS MATRIX 3\n") # Save all runs in a single matrix
     f.write("OUTPUTDIR output\n") # name of dir containing output files
-    f.write("\n")
+#     f.write("\n")
     f.write("Program control\n")
     f.write("RUNMODE 1\n") # Run option
     f.write("MISSLEVEL %s\n" % formatAsME(1.0)) # Species missing proportion
@@ -349,122 +415,87 @@ def create_input_dat(dest, prop, scen_name):
     f.write("HEURTYPE -1\n") # Heuristic
     f.write("CLUMPTYPE 0\n") # Clumping rule
     f.write("VERBOSITY 3\n") # Screen output
-    f.write("\n")
+#     f.write("\n")
     f.close()
+    print(os.path.basename(dest) + ": input.dat created successfully")
     return output
 
 
-# # Write formula to create 'bound.dat' file
-# (# code below taken from 'qmarxan_toolbox_algorithm.py')
-#
-# # # Constants used to refer to parameters and outputs. They will be
-# # # used when calling the algorithm from another algorithm, or when
-# # # calling from the QGIS console.
-#
-# # PU_LAYER = 'PU_LAYER'
-# # PU_FIELD = 'PU_FIELD'
-# # BND_METHOD = 'BND_METHOD'
-# # BND_TREAT = 'BND_TREAT'
-# # BND_VALUE = 'BND_VALUE'
-# # CALC_FIELD = 'CALC_FIELD'
-# # CALC_METHOD = 'CALC_METHOD'
-# # TOL = 'TOL'
-# # OUT_DIR = 'OUT_DIR'
-#
-# # def create_bound_dat(???self, config???):
-# #         """
-# #         Here we define the inputs and output of the algorithm, along
-# #         with some other properties.
-# #         """
-# #         # pu layer
-# #         self.addParameter(
-# #                 self.PU_LAYER,
-# #                 self.tr('Planning unit layer (source for bound.dat file)'),
-# #                 [QgsProcessing.TypeVectorPolygon]
-# #             )
-# #         )
-# #         # pu id
-# #         self.addParameter(
-# #             QgsProcessingParameterField(
-# #                 self.PU_FIELD,
-# #                 self.tr('Planning unit id field'),
-# #                 parentLayerParameterName=self.PU_LAYER,
-# #                 type=QgsProcessingParameterField.Numeric
-# #             )
-# #         )
-# #         #
-# #         # advanced settings
-# #         #
-# #         #  bnd method
-# #         bndMethod = QgsProcessingParameterEnum(
-# #             self.BND_METHOD,
-# #             self.tr('Boundary method (how lengths between planning units will be set)'),
-# #             options = ["Single","Measured","Weighted","Field"],
-# #             defaultValue = 0
-# #         )
-# #         bndMethod.setFlags(bndMethod.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
-# #         self.addParameter(bndMethod)
-# #         # bnd treatment
-# #         bndTreatment = QgsProcessingParameterEnum(
-# #             self.BND_TREAT,
-# #             self.tr('Boundary treatment (how values for PUs on perimeter of study area will be set)'),
-# #             options = ["Full Value","Half Value","Exclude"],
-# #             defaultValue = 0
-# #         )
-# #         bndTreatment.setFlags(bndTreatment.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
-# #         self.addParameter(bndTreatment)
-# #         # single value
-# #         bndValue = QgsProcessingParameterNumber(
-# #             self.BND_VALUE,
-# #             self.tr('Boundary value (value for all boundaries regardless of measured length)'),
-# #             type=QgsProcessingParameterNumber.Integer,
-# #             minValue=0,
-# #             defaultValue=1,
-# #             optional=True
-# #         )
-# #         bndValue.setFlags(bndValue.flags() | QgsProcessingParameterDefinition.FlagAdvanced )
-# #         self.addParameter(bndValue)
-# #         # calculation field
-# #         calcField = QgsProcessingParameterField(
-# #             self.CALC_FIELD,
-# #             self.tr('Calculation field (field to weight or assign boundary lengths)'),
-# #             parentLayerParameterName=self.PU_LAYER,
-# #             type=QgsProcessingParameterField.Numeric,
-# #             optional = True
-# #         )
-# #         calcField.setFlags(calcField.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
-# #         self.addParameter(calcField)
-# #         # calculation method
-# #         calcMethod = QgsProcessingParameterEnum(
-# #             self.CALC_METHOD,
-# #             self.tr('Calculation method (how to assign boundary length if values between adjacent planning units differ)'),
-# #             options = ["Mean","Maximum","Minimum"],
-# #             defaultValue = 0,
-# #             optional = True
-# #         )
-# #         calcMethod.setFlags(calcMethod.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
-# #         self.addParameter(calcMethod)
-# #         # rounding precision
-# #         tolerance = QgsProcessingParameterEnum(
-# #             self.TOL,
-# #             self.tr('Export precision tolerance (in map units)'),
-# #             options = ["100","10","1","0.1","0.01","0.001","0.0001","0.00001"],
-# #             defaultValue = 3
-# #         )
-# #         tolerance.setFlags(tolerance.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
-# #         self.addParameter(tolerance)
-#
-# #         # select output folder
-# #         defDir = os.path.join(os.path.expanduser('~'),'marxanproj1','input')
-# #         self.addParameter(
-# #             QgsProcessingParameterFolderDestination(
-# #                 self.OUT_DIR,
-# #                 self.tr('Marxan input folder (place to write bound.dat file)'),
-# #                 defDir,
-# #                 optional=False
-# #             )
-# #         )
-# #
+# In[11]:
+
+
+# create function to create image of best run (like dome example in qgis)
+
+def create_solution_plot(eco, path, espg, scen_id):
+    """plots an image to show what hex cells were selected in the best run
+
+    Parameters
+    ----------
+    eco : str
+    the abbreviated one word short name used for ecosystem being analyzed;
+    identifies a subdirectory of the timestamped marxan run directory
+
+    path : filepath
+    filepath to ecosystem subdirectory
+
+    espg : str
+    espg number (we're using ESPG:5070)
+
+    scen_id : str
+    scenario id, info to be included as prefix on generated output files
+
+    eco_info : dataframe
+    source of info for each ecosystem, with columns 'OID' (Unique ID number),
+    'Name' (ecosystem name), Type (number representing RLE Status), Size of
+    Ecosystem (units of area measurement) and the Current IUCN Threshold
+    value, based upon ecosystem's RLE status
+
+
+    Returns
+    -------
+    returned_data : csv
+    csv files are saved to ecosystem directories, one file for each threshold
+    value to be tested
+    """
+    # THE RASTER LAYER ISN'T PLOTTING WELL FOR ME AT THE MOMENT, 1ST DRAFT OF
+    # IMAGE IS JUST THE HEX CELL SOLUTION FROM BEST RUN
+
+    # # Open raster data
+    # raster_path = os.path.normpath(os.path.join(path,
+    #                            "source_data",
+    #                            eco + "_espg_" + espg + ".tif"))
+    # raster_layer = rxr.open_rasterio(raster_path, masked=True).squeeze()
+    # raster_extent = plotting_extent(raster_layer, raster_layer.rio.transform())
+
+    # open shapefile created in the 'set_source_files_crs' function
+    shp_path = os.path.normpath(os.path.join(
+        path, "source_data", eco + "_espg_" + espg + ".shp"))
+    shp_layer = gpd.read_file(shp_path)
+
+    # open 'best_run' file created by Marxan saved to 'output' directory
+    best_run_path = os.path.normpath(os.path.join(
+        path, 'output', scen_id + '_best.csv'))
+    best_run = pd.read_csv(best_run_path)
+
+    # merge best_run df to shp layer
+    best_run = best_run.rename(columns={'PUID': 'Unit_ID'})
+    shp_layer = shp_layer.merge(best_run, on='Unit_ID')
+
+
+    # create visualization showing hexcell selection from best run solution
+    fig, ax = plt.subplots(figsize=(10, 10))
+    shp_layer.plot(column='SOLUTION', cmap='tab20', ax=ax)
+    # ax.imshow(raster_layer, cmap='BuGn', extent=raster_extent)
+    # ax.imshow(raster_layer)
+    # ax.imshow(raster_layer, cmap='BuGn')
+    # raster_layer.plot.imshow(cmap='BuGn')
+
+    ax.set(title= eco + ': best run solution ')
+
+    ax.set_axis_off()
+    output = plt.savefig('solution_plot.pdf')
+    return output
+
 
 # FUNCTION TO CREATE PUVSP.DAT & SPEC.DAT
 # (PUVSP_SPORDER.DAT not needed, as currently we are looking at only one ecosystem at a time)
