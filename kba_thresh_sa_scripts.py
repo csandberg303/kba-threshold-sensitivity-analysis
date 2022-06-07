@@ -423,7 +423,97 @@ def create_input_dat(dest, prop=0.5, scen_id=("eco_xyz")):
     return output
 
 
-# In[9]:
+# In[13]:
+
+
+# TO CREATE INPUT.DAT (LINES 128-183 OF ALGORITHM FILE)
+def create_mxrun_summary(dest, espg, prop, spf, minclump, scen_id):
+    """
+    To create an output summary, showing local variables and info from sen.dat
+    output file
+
+    Parameters
+    ----------
+    dest : str
+    path to the 'eco' subdirectory
+
+    espg : str
+    espg number (we're using ESPG:5070)
+
+    prop : float
+    The proportion of the total amount of the feature which must be included
+    in the solution; must be between 0 and 1 (tutorial suggests 0.3)
+
+    spf : int
+    species penalty factor
+
+    minclump : bool
+    determines if additional field 'target2' should be included in results
+
+    scen_id : str
+    scenario id, info to be included as prefix on generated output files
+
+    other parameters will be added to replace the default initial values
+    that are included in the QMarxan code
+
+    -------
+    returned_data : the input.dat file
+
+    """
+    sen_path = glob(os.path.normpath(os.path.join(dest, "output", "*_sen.*")))
+    sen_df = pd.read_table(sen_path[0], header=None)
+    sen_l1 = sen_df[0].iloc[0]
+    sen_l2 = sen_df[0].iloc[1]
+    sen_l3 = sen_df[0].iloc[2]
+    sen_l4 = sen_df[0].iloc[3]
+    sen_l5 = sen_df[0].iloc[4]
+    sen_l6 = sen_df[0].iloc[5]
+    sen_l7 = sen_df[0].iloc[6]
+    sen_l8 = sen_df[0].iloc[7]
+    sen_l9 = sen_df[0].iloc[8]
+    sen_l10 = sen_df[0].iloc[9]
+    sen_l11 = sen_df[0].iloc[10]
+    sen_l12 = sen_df[0].iloc[11]
+    sen_l13 = sen_df[0].iloc[12]
+    sen_l14 = sen_df[0].iloc[13]
+    sen_l14 = sen_df[0].iloc[14]
+    sen_l15 = sen_df[0].iloc[15]
+
+    propstr = str(prop)
+    spfstr = str(spf)
+    clumpstr = str(minclump)
+
+    output = os.path.join(dest, 'output', 'mxrun_summary.dat')
+    f = open(output, 'w')
+    f.write("Scenario Details\n")
+    f.write(sen_l1 + "\n")
+    f.write(sen_l2 + "\n")
+    f.write(sen_l3 + "\n")
+    f.write(sen_l4 + "\n")
+    f.write(sen_l5 + "\n")
+    f.write(sen_l6 + "\n")
+    f.write(sen_l7 + "\n")
+    f.write(sen_l8 + "\n")
+    f.write(sen_l9 + "\n")
+    f.write(sen_l10 + "\n")
+    f.write(sen_l11 + "\n")
+    f.write(sen_l12 + "\n")
+    f.write(sen_l13 + "\n")
+    f.write(sen_l14 + "\n")
+    f.write(sen_l15 + "\n")
+    f.write("\n")
+    f.write('Variables Set Locally\n')
+    f.write('ESPG value for raster and shapefile: ' + espg + "\n")
+    f.write('proportion, used in input.dat and spec.dat: ' +  propstr + "\n")
+    f.write('Species Penalty Factor: ' + spfstr +'\n')
+    f.write('minclump value, seen in spec.dat: ' + clumpstr + "\n")
+    f.write('scen_id: ' + scen_id + '\n')
+    f.close()
+    print(os.path.basename(dest) + ": mxrunsummary created successfully")
+    return output
+
+
+# In[10]:
 
 
 # create function to create plot of best solution from Marxan output, and
@@ -476,27 +566,41 @@ def get_bestshp_and_bestplot(eco, path, espg, scen_id):
     # merge best_run df to shp layer
     shp_layer.insert(0, 'PUID', range(1, 1 + len(shp_layer)))
     shp_layer = shp_layer.merge(best_run, on='PUID')
-    shp_w_best = shp_layer.to_file(eco + "_w_best.shp", index=False)
-    print (eco + '.shp merged with ' + scen_id + "_best.csv, saved as " + eco
-           + "_w_best.shp file")
+
+    # open 'puvsp.dat' and merge with shp layer to get 'amount' from puvsp
+    puvsp_path = os.path.normpath(os.path.join(path, 'input', 'puvsp.dat'))
+    puvsp = pd.read_csv(puvsp_path)
+    puvsp = puvsp.rename(columns={'pu': 'PUID'})
+    shp_layer = shp_layer.merge(puvsp, on='PUID')
+
+    fig_title_metr = shp_layer.query("SOLUTION == 1")['amount'].sum()/1000000
+    ftm_string = str(fig_title_metr)
+
+    # save merged shp as new file
+    shp_w_best_and_amt = shp_layer.to_file(eco + "_w_best.shp", index=False)
+    print (eco + '.shp merged with ' + scen_id +
+           "_best.csv and puvsp.dat, saved as " + eco +
+           "_w_best_and_amt.shp file")
+    print ('preparing plots...')
 
     # create visualization showing hexcell selection from best run solution
     fig, ax = plt.subplots(figsize=(10, 10))
     shp_layer.plot(column='SOLUTION', cmap='tab20', ax=ax, alpha=0.65)
     ax.imshow(raster_layer, cmap='jet', extent=raster_extent,
               interpolation='nearest')
-    ax.set(title= eco + ': best run solution ')
+    ax.set(title= scen_id + ': best run solution' +
+           '\nTotal Selected Ecoystem = ' + ftm_string + ' sq km')
     ax.set_axis_off()
 
     best_plot = plt.savefig('best_plot.png', facecolor='w', edgecolor='k',
                             dpi=1200)
     print (eco + ": best plot saved as .png")
 
-    output = (shp_w_best, best_plot)
+    output = (shp_w_best_and_amt, best_plot)
     return output
 
 
-# In[10]:
+# In[11]:
 
 
 # create function to create plot of summed solution from Marxan output, and
@@ -554,13 +658,15 @@ def get_ssolnshp_and_ssolnplot(eco, path, espg, scen_id):
     shp_w_ssoln = shp_layer.to_file(eco + "_w_ssoln.shp", index=False)
     print (eco + '.shp merged with ' + scen_id + "_ssoln.csv, saved as " + eco
            + "_w_ssoln.shp file")
+    print ('preparing plots...')
 
     # create visualization showing hexcell selection from summed solution
     fig, ax = plt.subplots(figsize=(10, 10))
     shp_layer.plot(column='number', cmap='viridis', ax=ax, alpha=0.65)
     ax.imshow(raster_layer, cmap='jet', extent=raster_extent,
               interpolation='nearest')
-    ax.set(title= eco + ': summed solution \n(hex cell selection frequency)')
+    ax.set(title= scen_id + ': summed solution' +
+           '\n(hex cell selection frequency)')
     ax.set_axis_off()
 
     ssoln_plot = plt.savefig('ssoln_plot.png', facecolor='w', edgecolor='k',
