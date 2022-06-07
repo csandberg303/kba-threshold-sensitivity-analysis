@@ -139,10 +139,12 @@ def set_source_files_crs (path, eco, espg='5070'):
     tif_data_path = os.path.join(path, "r_tif", eco + '.tif')
     tif_layer = rxr.open_rasterio(tif_data_path, masked=True).squeeze()
 
-
     # reproject CRS of shp
     shp_layer_crs = shp_layer.to_crs(epsg=espg)
-    # change name of 'Unit_ID' column to 'PUID'
+
+    # create shp output variable
+    shp_espg_file = shp_layer_crs.to_file(eco + "_espg_" + espg + ".shp",
+                                          index=False)
 
     # reproject CRS of tif
     # create a rasterio crs object
@@ -153,11 +155,11 @@ def set_source_files_crs (path, eco, espg='5070'):
     # create path that new tif file will be saved to
     tif_layer_crs_path = os.path.join(os.getcwd(),
                                       eco + "_espg_" + espg + ".tif")
+    # create tif output variable
+    tif_espg_file = tif_layer_crs.rio.to_raster(tif_layer_crs_path)
 
     # save the reprojected .shp and .tif files
-    output = (shp_layer_crs.to_file(eco + "_espg_" + espg + ".shp",
-                                    index=False),
-              tif_layer_crs.rio.to_raster(tif_layer_crs_path))
+    output = (shp_espg_file, tif_espg_file)
 
     print(eco + ": finished set_source_files_crs")
     return output
@@ -421,13 +423,106 @@ def create_input_dat(dest, prop=0.5, scen_id=("eco_xyz")):
     return output
 
 
-# In[11]:
+# In[13]:
 
 
-# create function to create image of best run (like dome example in qgis)
+# TO CREATE INPUT.DAT (LINES 128-183 OF ALGORITHM FILE)
+def create_mxrun_summary(dest, espg, prop, spf, minclump, scen_id):
+    """
+    To create an output summary, showing local variables and info from sen.dat
+    output file
 
-def create_solution_plot(eco, path, espg, scen_id):
-    """plots an image to show what hex cells were selected in the best run
+    Parameters
+    ----------
+    dest : str
+    path to the 'eco' subdirectory
+
+    espg : str
+    espg number (we're using ESPG:5070)
+
+    prop : float
+    The proportion of the total amount of the feature which must be included
+    in the solution; must be between 0 and 1 (tutorial suggests 0.3)
+
+    spf : int
+    species penalty factor
+
+    minclump : bool
+    determines if additional field 'target2' should be included in results
+
+    scen_id : str
+    scenario id, info to be included as prefix on generated output files
+
+    other parameters will be added to replace the default initial values
+    that are included in the QMarxan code
+
+    -------
+    returned_data : the input.dat file
+
+    """
+    sen_path = glob(os.path.normpath(os.path.join(dest, "output", "*_sen.*")))
+    sen_df = pd.read_table(sen_path[0], header=None)
+    sen_l1 = sen_df[0].iloc[0]
+    sen_l2 = sen_df[0].iloc[1]
+    sen_l3 = sen_df[0].iloc[2]
+    sen_l4 = sen_df[0].iloc[3]
+    sen_l5 = sen_df[0].iloc[4]
+    sen_l6 = sen_df[0].iloc[5]
+    sen_l7 = sen_df[0].iloc[6]
+    sen_l8 = sen_df[0].iloc[7]
+    sen_l9 = sen_df[0].iloc[8]
+    sen_l10 = sen_df[0].iloc[9]
+    sen_l11 = sen_df[0].iloc[10]
+    sen_l12 = sen_df[0].iloc[11]
+    sen_l13 = sen_df[0].iloc[12]
+    sen_l14 = sen_df[0].iloc[13]
+    sen_l14 = sen_df[0].iloc[14]
+    sen_l15 = sen_df[0].iloc[15]
+
+    propstr = str(prop)
+    spfstr = str(spf)
+    clumpstr = str(minclump)
+
+    output = os.path.join(dest, 'output', 'mxrun_summary.dat')
+    f = open(output, 'w')
+    f.write("Scenario Details\n")
+    f.write(sen_l1 + "\n")
+    f.write(sen_l2 + "\n")
+    f.write(sen_l3 + "\n")
+    f.write(sen_l4 + "\n")
+    f.write(sen_l5 + "\n")
+    f.write(sen_l6 + "\n")
+    f.write(sen_l7 + "\n")
+    f.write(sen_l8 + "\n")
+    f.write(sen_l9 + "\n")
+    f.write(sen_l10 + "\n")
+    f.write(sen_l11 + "\n")
+    f.write(sen_l12 + "\n")
+    f.write(sen_l13 + "\n")
+    f.write(sen_l14 + "\n")
+    f.write(sen_l15 + "\n")
+    f.write("\n")
+    f.write('Variables Set Locally\n')
+    f.write('ESPG value for raster and shapefile: ' + espg + "\n")
+    f.write('proportion, used in input.dat and spec.dat: ' +  propstr + "\n")
+    f.write('Species Penalty Factor: ' + spfstr +'\n')
+    f.write('minclump value, seen in spec.dat: ' + clumpstr + "\n")
+    f.write('scen_id: ' + scen_id + '\n')
+    f.close()
+    print(os.path.basename(dest) + ": mxrunsummary created successfully")
+    return output
+
+
+# In[10]:
+
+
+# create function to create plot of best solution from Marxan output, and
+# also save the shapefile merged with best solution as new file
+
+def get_bestshp_and_bestplot(eco, path, espg, scen_id):
+    """
+    plots an image to show what hex cells were selected in the best run
+    (also saves the shapefile merged with '_best.csv' needed to produce plot)
 
     Parameters
     ----------
@@ -444,56 +539,141 @@ def create_solution_plot(eco, path, espg, scen_id):
     scen_id : str
     scenario id, info to be included as prefix on generated output files
 
-    eco_info : dataframe
-    source of info for each ecosystem, with columns 'OID' (Unique ID number),
-    'Name' (ecosystem name), Type (number representing RLE Status), Size of
-    Ecosystem (units of area measurement) and the Current IUCN Threshold
-    value, based upon ecosystem's RLE status
-
-
     Returns
     -------
-    returned_data : csv
-    csv files are saved to ecosystem directories, one file for each threshold
-    value to be tested
+    output : list
+    will generate two files named in output list
+    (shapefile merged with best solution, and plot of best solution)
     """
-    # THE RASTER LAYER ISN'T PLOTTING WELL FOR ME AT THE MOMENT, 1ST DRAFT OF
-    # IMAGE IS JUST THE HEX CELL SOLUTION FROM BEST RUN
-
-    # # Open raster data
-    # raster_path = os.path.normpath(os.path.join(path,
-    #                            "source_data",
-    #                            eco + "_espg_" + espg + ".tif"))
-    # raster_layer = rxr.open_rasterio(raster_path, masked=True).squeeze()
-    # raster_extent = plotting_extent(raster_layer, raster_layer.rio.transform())
+    # Open raster data, set plotting extent
+    raster_path = os.path.normpath(os.path.join(path,
+                               "source_data",
+                               eco + "_espg_" + espg + ".tif"))
+    raster_layer = rxr.open_rasterio(raster_path, masked=True).squeeze()
+    raster_extent = plotting_extent(raster_layer,
+                                    raster_layer.rio.transform())
 
     # open shapefile created in the 'set_source_files_crs' function
     shp_path = os.path.normpath(os.path.join(
         path, "source_data", eco + "_espg_" + espg + ".shp"))
     shp_layer = gpd.read_file(shp_path)
 
-    # open 'best_run' file created by Marxan saved to 'output' directory
-    best_run_path = os.path.normpath(os.path.join(
-        path, 'output', scen_id + '_best.csv'))
+    # open '_best' file created by Marxan and saved to 'output' directory
+    globfile = glob(os.path.normpath(os.path.join(path, 'output', '*_best*')))
+    best_run_path = globfile[0]
     best_run = pd.read_csv(best_run_path)
 
     # merge best_run df to shp layer
-    best_run = best_run.rename(columns={'PUID': 'Unit_ID'})
-    shp_layer = shp_layer.merge(best_run, on='Unit_ID')
+    shp_layer.insert(0, 'PUID', range(1, 1 + len(shp_layer)))
+    shp_layer = shp_layer.merge(best_run, on='PUID')
 
+    # open 'puvsp.dat' and merge with shp layer to get 'amount' from puvsp
+    puvsp_path = os.path.normpath(os.path.join(path, 'input', 'puvsp.dat'))
+    puvsp = pd.read_csv(puvsp_path)
+    puvsp = puvsp.rename(columns={'pu': 'PUID'})
+    shp_layer = shp_layer.merge(puvsp, on='PUID')
+
+    fig_title_metr = shp_layer.query("SOLUTION == 1")['amount'].sum()/1000000
+    ftm_string = str(fig_title_metr)
+
+    # save merged shp as new file
+    shp_w_best_and_amt = shp_layer.to_file(eco + "_w_best.shp", index=False)
+    print (eco + '.shp merged with ' + scen_id +
+           "_best.csv and puvsp.dat, saved as " + eco +
+           "_w_best_and_amt.shp file")
+    print ('preparing plots...')
 
     # create visualization showing hexcell selection from best run solution
     fig, ax = plt.subplots(figsize=(10, 10))
-    shp_layer.plot(column='SOLUTION', cmap='tab20', ax=ax)
-    # ax.imshow(raster_layer, cmap='BuGn', extent=raster_extent)
-    # ax.imshow(raster_layer)
-    # ax.imshow(raster_layer, cmap='BuGn')
-    # raster_layer.plot.imshow(cmap='BuGn')
-
-    ax.set(title= eco + ': best run solution ')
-
+    shp_layer.plot(column='SOLUTION', cmap='tab20', ax=ax, alpha=0.65)
+    ax.imshow(raster_layer, cmap='jet', extent=raster_extent,
+              interpolation='nearest')
+    ax.set(title= scen_id + ': best run solution' +
+           '\nTotal Selected Ecoystem = ' + ftm_string + ' sq km')
     ax.set_axis_off()
-    output = plt.savefig('solution_plot.pdf')
+
+    best_plot = plt.savefig('best_plot.png', facecolor='w', edgecolor='k',
+                            dpi=1200)
+    print (eco + ": best plot saved as .png")
+
+    output = (shp_w_best_and_amt, best_plot)
+    return output
+
+
+# In[11]:
+
+
+# create function to create plot of summed solution from Marxan output, and
+# also save the shapefile merged with best solution as new file
+
+def get_ssolnshp_and_ssolnplot(eco, path, espg, scen_id):
+    """
+    plots an image to show hex cell selection frequency
+    (also saves the shapefile merged with '_ssoln.csv' needed to produce plot)
+
+    Parameters
+    ----------
+    eco : str
+    the abbreviated one word short name used for ecosystem being analyzed;
+    identifies a subdirectory of the timestamped marxan run directory
+
+    path : filepath
+    filepath to ecosystem subdirectory
+
+    espg : str
+    espg number (we're using ESPG:5070)
+
+    scen_id : str
+    scenario id, info to be included as prefix on generated output files
+
+    Returns
+    -------
+    output : list
+    will generate two files named in output list
+    (shapefile merged with summed solution, and plot of summed solution)
+    """
+    # Open raster data, set plotting extent
+    raster_path = os.path.normpath(os.path.join(path,
+                               "source_data",
+                               eco + "_espg_" + espg + ".tif"))
+    raster_layer = rxr.open_rasterio(raster_path, masked=True).squeeze()
+    raster_extent = plotting_extent(raster_layer,
+                                    raster_layer.rio.transform())
+
+    # open shapefile created in the 'set_source_files_crs' function
+    shp_path = os.path.normpath(os.path.join(
+        path, "source_data", eco + "_espg_" + espg + ".shp"))
+    shp_layer = gpd.read_file(shp_path)
+
+    # open '_ssoln' file created by Marxan and saved to 'output' directory
+    globfile = glob(os.path.normpath(os.path.join(path, 'output',
+                                                  '*_ssoln*')))
+    ssoln_path = globfile[0]
+    ssoln = pd.read_csv(ssoln_path)
+    ssoln = ssoln.rename(columns={'planning_unit': 'PUID'})
+
+    # merge ssoln df to shp layer
+    shp_layer.insert(0, 'PUID', range(1, 1 + len(shp_layer)))
+    shp_layer = shp_layer.merge(ssoln, on='PUID')
+    shp_w_ssoln = shp_layer.to_file(eco + "_w_ssoln.shp", index=False)
+    print (eco + '.shp merged with ' + scen_id + "_ssoln.csv, saved as " + eco
+           + "_w_ssoln.shp file")
+    print ('preparing plots...')
+
+    # create visualization showing hexcell selection from summed solution
+    fig, ax = plt.subplots(figsize=(10, 10))
+    shp_layer.plot(column='number', cmap='viridis', ax=ax, alpha=0.65)
+    ax.imshow(raster_layer, cmap='jet', extent=raster_extent,
+              interpolation='nearest')
+    ax.set(title= scen_id + ': summed solution' +
+           '\n(hex cell selection frequency)')
+    ax.set_axis_off()
+
+    ssoln_plot = plt.savefig('ssoln_plot.png', facecolor='w', edgecolor='k',
+                            dpi=1200)
+    print (eco + ": ssoln plot saved as .png")
+
+    output = (shp_w_ssoln, ssoln_plot)
     return output
 
 
