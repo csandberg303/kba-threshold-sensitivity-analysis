@@ -29,7 +29,7 @@ import rioxarray as rxr
 
 # create function to get Lana's input files (created with ArcGIS) from the
 # repo to local directory
-def get_marxan_input_files(eco, files_to_get):
+def get_marxan_input_files(eco, files_to_get, scen_id):
      """
      Currently this formula will find the input files Lana created using the
      ArcMarxan Toolbox plugin in ArcGIS, which have been stored to the assets
@@ -66,7 +66,7 @@ def get_marxan_input_files(eco, files_to_get):
                                  index_col=False).squeeze("columns")
         filename = file
         output = fileinfo_df.to_csv(file, index=False)
-        print(eco + ": " + file + " successfully copied from url")
+        print(scen_id + ": " + file + " successfully copied from url")
      return output
 
 
@@ -83,7 +83,7 @@ def get_marxan_input_files(eco, files_to_get):
 # 'shp_hex' and 'r_tif' directories using code rather than ArcGIS, but this
 # 'get_source_files' formula will still function to copy the needed files into
 # the 'eco' directory when the 'eco/input' directories are created.
-def get_source_files(path, eco):
+def get_source_files(path, eco, scen_id):
     """
     path : str
     local directory where the shapefiles or rasters are stored
@@ -92,6 +92,9 @@ def get_source_files(path, eco):
     the abbreviated one word short name used for ecosystem being analyzed;
     identifies a subdirectory of the timestamped marxan run directory
 
+    scen_id : str
+    scenario id, info to be included as prefix on generated output
+
     """
     source_file_ls = glob(os.path.join(path, eco + '*'))
     if source_file_ls == []:
@@ -99,9 +102,10 @@ def get_source_files(path, eco):
     else:
         for file in source_file_ls:
             shutil.copy(file, os.getcwd())
-            print(eco + ": "+ os.path.basename(file) + " copied successfully")
+            print(scen_id + ": "+ os.path.basename(file) +
+                  " copied successfully")
 
-    return print(eco + ": finished copying source files")
+    return print(scen_id + ": finished copying source files from " + path)
 
 
 # In[4]:
@@ -109,7 +113,7 @@ def get_source_files(path, eco):
 
 # set crs of shp and tif to ESPG 5070 and save as new files
 
-def set_source_files_crs (path, eco, espg='5070'):
+def set_source_files_crs (path, eco, espg, scen_id):
     """
     To set crs of shp and tif to ESPG 5070, add columns to shp and save as new
     files
@@ -126,6 +130,9 @@ def set_source_files_crs (path, eco, espg='5070'):
 
     espg : str
     espg number (we're using ESPG:5070)
+
+    scen_id : str
+    scenario id, info to be included as prefix on generated output
 
     -------
     returned_data : updated shp and tif
@@ -161,7 +168,7 @@ def set_source_files_crs (path, eco, espg='5070'):
     # save the reprojected .shp and .tif files
     output = (shp_espg_file, tif_espg_file)
 
-    print(eco + ": finished set_source_files_crs")
+    print(scen_id + ": finished set_source_files_crs")
     return output
 
 
@@ -170,7 +177,7 @@ def set_source_files_crs (path, eco, espg='5070'):
 
 # function to create pu.dat file
 
-def create_pu_dat(eco, path):
+def create_pu_dat(eco, path, scen_id):
     """
     To create the pu.dat file that stores information about planning units in
     hex grid
@@ -183,6 +190,9 @@ def create_pu_dat(eco, path):
 
     path : str
     local directory where 'hex_shp' directory is stored
+
+    scen_id : str
+    scenario id, info to be included as prefix on generated output
 
     -------
     returned_data : the pu.dat input file
@@ -205,16 +215,71 @@ def create_pu_dat(eco, path):
     # create pu.dat file
     pu_dat = shp_crs_layer[["id", "Cost", "Status"]].set_index("id")
     output = pu_dat.to_csv('pu.dat')
-    print(eco + ": pu.dat file successfully created")
+    print(scen_id + ": pu.dat file successfully created")
     return output
 
 
 # In[6]:
 
 
-# funtion to create spec.dat file
+# # funtion to create spec.dat file
 
-def create_spec_dat(info_df, eco, prop=0.3, spf=1, minclump=False):
+# def create_spec_dat(info_df, eco, prop=0.3, spf=1, minclump=False):
+#     """
+#     To create the spec.dat file, which stores information about ecosytem to be
+#     analyzed in marxan run
+
+#     Parameters
+#     ----------
+#     info_df : df
+#     dataframe of ecosystem info, including 'Short_Name', 'US_km2' and
+#     'Current_IUCN_TH' columns
+
+#     eco : str
+#     the abbreviated one word short name used for ecosystem being analyzed;
+#     identifies a subdirectory of the timestamped marxan run directory
+
+#     prop : float
+#     The proportion of the total amount of the feature which must be included
+#     in the solution; must be between 0 and 1 (tutorial suggests 0.3)
+
+#     spf : int
+#     species penalty factor
+
+#     minclump : bool
+#     determines if additional field 'target2' should be included in results,
+#     to show the 'Minimum clump size for the representation of conservation
+#     features in the reserve system'. Default set to 'False'.  If 'True',
+#     'target2' column is added, with the minimum clump size calculated as the
+#     ecosystem's extent in meters ('US_km2' * 1,000,000) by it's current IUCN
+#     Threshold value ('Current_IUCN_TH' = .05 if CR or EN, or 0.10 if VU)
+#     -------
+
+#     returned_data : the spec.dat input file
+
+#     """
+#     # set columns of spec.dat, if minclump parameter is False
+#     if minclump == False:
+#         data = [{'id': 1, 'prop': prop, 'spf': 1, 'name': eco}]
+#     # include add'l 'target2' column in file if minclump parameter is True
+#     else:
+#         target2 = info_df.at[eco,'Current_IUCN_TH'] * (
+#             info_df.at[eco,'US_km2'] * 1000000)
+#         data = [{'id': 1, 'prop': prop, 'target2': target2, 'spf': 1,
+#                  'name': eco}]
+#     # set index, and save file as 'spec.dat'
+#     spec_dat = pd.DataFrame(data).set_index('id')
+#     output = spec_dat.to_csv('spec.dat')
+#     print(eco + ": spec.dat file successfully created")
+#     return output
+
+
+# In[7]:
+
+
+# 2nd try - funtion to create spec.dat file
+
+def create_spec_dat_v2(info_df, prop, target2, spf, eco, scen_id):
     """
     To create the spec.dat file, which stores information about ecosytem to be
     analyzed in marxan run
@@ -225,46 +290,51 @@ def create_spec_dat(info_df, eco, prop=0.3, spf=1, minclump=False):
     dataframe of ecosystem info, including 'Short_Name', 'US_km2' and
     'Current_IUCN_TH' columns
 
-    eco : str
-    the abbreviated one word short name used for ecosystem being analyzed;
-    identifies a subdirectory of the timestamped marxan run directory
-
     prop : float
-    The proportion of the total amount of the feature which must be included
-    in the solution; must be between 0 and 1 (tutorial suggests 0.3)
+    The proportion of total ecosystem area that must be included in solution
+
+    target2: float
+    minimum clumpsize of area, in order to be included in solution (*KBA*)
 
     spf : int
     species penalty factor
 
-    minclump : bool
-    determines if additional field 'target2' should be included in results,
-    to show the 'Minimum clump size for the representation of conservation
-    features in the reserve system'. Default set to 'False'.  If 'True',
-    'target2' column is added, with the minimum clump size calculated as the
-    ecosystem's extent in meters ('US_km2' * 1,000,000) by it's current IUCN
-    Threshold value ('Current_IUCN_TH' = .05 if CR or EN, or 0.10 if VU)
+    eco : str
+    the abbreviated one word short name used for ecosystem being analyzed;
+    identifies a subdirectory of the timestamped marxan run directory
+
+    scen_id : str
+    scenario id, info to be included as prefix on generated output
     -------
 
     returned_data : the spec.dat input file
 
     """
-    # set columns of spec.dat, if minclump parameter is False
-    if minclump == False:
-        data = [{'id': 1, 'prop': prop, 'spf': 1, 'name': eco}]
-    # include add'l 'target2' column in file if minclump parameter is True
-    else:
-        target2 = info_df.at[eco,'Current_IUCN_TH'] * (
-            info_df.at[eco,'US_km2'] * 1000000)
-        data = [{'id': 1, 'prop': prop, 'target2': target2, 'spf': 1,
-                 'name': eco}]
+#     # set columns of spec.dat, if minclump parameter is False
+#     if minclump == False:
+#         data = [{'id': 1, 'prop': prop, 'spf': spf, 'name': eco}]
+#     # include add'l 'target2' column in file if minclump parameter is True
+#     else:
+
+    # this is where the KBA threshold can be tested -
+    # KBA @ 100% = info_df.at[eco,'Current_IUCN_TH'] * (info_df.at[eco,'US_km2'] * 1000000
+    # iterate by - test_threshold = [1.0, 0.75, 0.50, 0.25]
+    # ITERATION WILL HAPPEN OUTSIDE FORMULA - SOMEWHERE IN MAIN LOOP
+    # target2 = (target2 * 1000000) / 0.30
+    data = [{'id': 1,
+             'prop': prop,
+             'spf': spf,
+             'target2': target2,
+             'name': eco
+            }]
     # set index, and save file as 'spec.dat'
     spec_dat = pd.DataFrame(data).set_index('id')
     output = spec_dat.to_csv('spec.dat')
-    print(eco + ": spec.dat file successfully created")
+    print(scen_id + ": spec.dat file successfully created")
     return output
 
 
-# In[7]:
+# In[8]:
 
 
 # create function to write targets.csv files, for each threshold test value
@@ -317,7 +387,7 @@ def create_cluz_targets_files(eco, thresholds_test, eco_info, path):
     return output
 
 
-# In[8]:
+# In[9]:
 
 
 # THESE FUNCTIONS ARE TAKEN/ADAPTED FROM QMARXAN TOOLBOX ALGORITHM CODE
@@ -338,7 +408,7 @@ def formatAsME(inVal):
 
 
 # TO CREATE INPUT.DAT (LINES 128-183 OF ALGORITHM FILE)
-def create_input_dat(dest, prop=0.5, scen_id=("eco_xyz")):
+def create_input_dat(dest, blm, scen_id):
     """
     To create the input.dat file that stores processing parameters
 
@@ -371,8 +441,8 @@ def create_input_dat(dest, prop=0.5, scen_id=("eco_xyz")):
     f.write('created by Apropos Information Systems Inc.\n')
 #     f.write('\n')
     f.write("General Parameters\n")
-    f.write("BLM 1\n") # Boundary Length Modifier
-    f.write("PROP %s\n" % formatAsME(prop)) # Proportion of PU (or sub TARGET)
+    f.write("BLM " + str(blm) + "\n") # Boundary Length Modifier
+    f.write("PROP %s\n" % formatAsME(0.5)) # Proportion of PU selected 1st run
     f.write("RANDSEED -1\n") # Random seed number
     f.write("NUMREPS 100\n") # Num of repeat runs (or solutions)
 #     f.write('\n')
@@ -423,11 +493,13 @@ def create_input_dat(dest, prop=0.5, scen_id=("eco_xyz")):
     return output
 
 
-# In[13]:
+# In[10]:
 
 
-# TO CREATE INPUT.DAT (LINES 128-183 OF ALGORITHM FILE)
-def create_mxrun_summary(dest, espg, prop, spf, minclump, scen_id):
+# TO CREATE summary of the marxan run, incl info from the output file scenario
+# details (sen.dat), input variables within the workflow (ALSO ADD AREA &
+# OUTPUT STATS)
+def create_mxrun_summary(dest, espg, prop, blm, target2, spf, scen_id, eco, df):
     """
     To create an output summary, showing local variables and info from sen.dat
     output file
@@ -440,26 +512,30 @@ def create_mxrun_summary(dest, espg, prop, spf, minclump, scen_id):
     espg : str
     espg number (we're using ESPG:5070)
 
-    prop : float
+    prop : float - USE BLM HERE INSTEAD
     The proportion of the total amount of the feature which must be included
     in the solution; must be between 0 and 1 (tutorial suggests 0.3)
+
+    target2 : float
+    the min acceptable clump size - SHOULD EQUAL KBA (5 or 10 % x test thresh)
 
     spf : int
     species penalty factor
 
-    minclump : bool
-    determines if additional field 'target2' should be included in results
-
     scen_id : str
     scenario id, info to be included as prefix on generated output files
 
-    other parameters will be added to replace the default initial values
+    df : df
+    provided df with info about ecosystem's RLE status and area extent
+
+    other parameters may be added to replace the default initial values
     that are included in the QMarxan code
 
     -------
     returned_data : the input.dat file
 
     """
+    # display info from sen.dat output file
     sen_path = glob(os.path.normpath(os.path.join(dest, "output", "*_sen.*")))
     sen_df = pd.read_table(sen_path[0], header=None)
     sen_l1 = sen_df[0].iloc[0]
@@ -479,11 +555,7 @@ def create_mxrun_summary(dest, espg, prop, spf, minclump, scen_id):
     sen_l14 = sen_df[0].iloc[14]
     sen_l15 = sen_df[0].iloc[15]
 
-    propstr = str(prop)
-    spfstr = str(spf)
-    clumpstr = str(minclump)
-
-    output = os.path.join(dest, 'output', 'mxrun_summary.dat')
+    output = os.path.join(dest, 'output', scen_id + '_mxrun_summary.dat')
     f = open(output, 'w')
     f.write("Scenario Details\n")
     f.write(sen_l1 + "\n")
@@ -502,18 +574,39 @@ def create_mxrun_summary(dest, espg, prop, spf, minclump, scen_id):
     f.write(sen_l14 + "\n")
     f.write(sen_l15 + "\n")
     f.write("\n")
-    f.write('Variables Set Locally\n')
+     # display info from stored variables in workflow
+    blmstr = str(blm)
+    propstr = str(prop)
+    tgt2str = str(target2)
+    spfstr = str(spf)
+    f.write('Variables Set Locally -\n')
     f.write('ESPG value for raster and shapefile: ' + espg + "\n")
-    f.write('proportion, used in input.dat and spec.dat: ' +  propstr + "\n")
+    f.write('input file variables:\n')
+    f.write('BLM: ' +  blmstr + "\n")
+    f.write('prop: ' +  propstr + "\n")
+    f.write('target2: ' +  tgt2str + " (" + str(target2/1000000) + " km2)\n")
     f.write('Species Penalty Factor: ' + spfstr +'\n')
-    f.write('minclump value, seen in spec.dat: ' + clumpstr + "\n")
     f.write('scen_id: ' + scen_id + '\n')
+    f.write("\n")
+
+    # display data from eco df
+    f.write('Spatial Extent of Ecosystem & KBA Thresholds\n')
+    f.write('eco: ' + eco + '\n')
+    f.write('US_km2: ' + str(df.at[eco,'US_km2']) + '\n')
+    f.write('RLE_FINAL: ' + df.at[eco,'RLE_FINAL'] + '\n')
+    f.write('Current_IUCN_TH: ' + str(df.at[eco,'Current_IUCN_TH']) + '\n')
+    f.write('KBA @ 1.00 IUCN TH: ' + str(df.at[eco,'US_km2']*df.at[eco,'Current_IUCN_TH']) + " km2\n")
+    f.write('KBA @ 0.75 IUCN TH: ' + str(0.75*(df.at[eco,'US_km2']*df.at[eco,'Current_IUCN_TH'])) + " km2\n")
+    f.write('KBA @ 0.50 IUCN TH: ' + str(0.50*(df.at[eco,'US_km2']*df.at[eco,'Current_IUCN_TH'])) + " km2\n")
+    f.write('KBA @ 0.25 IUCN TH: ' + str(0.25*(df.at[eco,'US_km2']*df.at[eco,'Current_IUCN_TH'])) + " km2\n")
     f.close()
-    print(os.path.basename(dest) + ": mxrunsummary created successfully")
+    print(os.path.basename(dest) + (': mxrunsummary created successfully\n'
+                                    'End run: ') + os.path.basename(dest) +
+                                    '\n')
     return output
 
 
-# In[10]:
+# In[11]:
 
 
 # create function to create plot of best solution from Marxan output, and
@@ -560,47 +653,55 @@ def get_bestshp_and_bestplot(eco, path, espg, scen_id):
 
     # open '_best' file created by Marxan and saved to 'output' directory
     globfile = glob(os.path.normpath(os.path.join(path, 'output', '*_best*')))
-    best_run_path = globfile[0]
-    best_run = pd.read_csv(best_run_path)
 
-    # merge best_run df to shp layer
-    shp_layer.insert(0, 'PUID', range(1, 1 + len(shp_layer)))
-    shp_layer = shp_layer.merge(best_run, on='PUID')
+    if globfile == []:
+        output = print (
+            "ERROR: best run file not found - check output/log. \nWill need "
+            "to resolve error and rerun Marxan if not completed successfully")
 
-    # open 'puvsp.dat' and merge with shp layer to get 'amount' from puvsp
-    puvsp_path = os.path.normpath(os.path.join(path, 'input', 'puvsp.dat'))
-    puvsp = pd.read_csv(puvsp_path)
-    puvsp = puvsp.rename(columns={'pu': 'PUID'})
-    shp_layer = shp_layer.merge(puvsp, on='PUID')
+    else:
+        best_run_path = globfile[0]
+        best_run = pd.read_csv(best_run_path)
 
-    fig_title_metr = shp_layer.query("SOLUTION == 1")['amount'].sum()/1000000
-    ftm_string = str(fig_title_metr)
+        # merge best_run df to shp layer
+        shp_layer.insert(0, 'PUID', range(1, 1 + len(shp_layer)))
+        shp_layer = shp_layer.merge(best_run, on='PUID')
 
-    # save merged shp as new file
-    shp_w_best_and_amt = shp_layer.to_file(eco + "_w_best.shp", index=False)
-    print (eco + '.shp merged with ' + scen_id +
-           "_best.csv and puvsp.dat, saved as " + eco +
-           "_w_best_and_amt.shp file")
-    print ('preparing plots...')
+        # open 'puvsp.dat' and merge with shp layer to get 'amount' from puvsp
+        puvsp_path = os.path.normpath(os.path.join(path, 'input', 'puvsp.dat'))
+        puvsp = pd.read_csv(puvsp_path)
+        puvsp = puvsp.rename(columns={'pu': 'PUID'})
+        shp_layer = shp_layer.merge(puvsp, on='PUID')
 
-    # create visualization showing hexcell selection from best run solution
-    fig, ax = plt.subplots(figsize=(10, 10))
-    shp_layer.plot(column='SOLUTION', cmap='tab20', ax=ax, alpha=0.65)
-    ax.imshow(raster_layer, cmap='jet', extent=raster_extent,
-              interpolation='nearest')
-    ax.set(title= scen_id + ': best run solution' +
-           '\nTotal Selected Ecoystem = ' + ftm_string + ' sq km')
-    ax.set_axis_off()
+        fig_title_metr = shp_layer.query("SOLUTION == 1")['amount'].sum()/1000000
+        ftm_string = str(fig_title_metr)
 
-    best_plot = plt.savefig('best_plot.png', facecolor='w', edgecolor='k',
-                            dpi=1200)
-    print (eco + ": best plot saved as .png")
+        # save merged shp as new file
+        shp_w_best_and_amt = shp_layer.to_file(eco + "_w_best.shp", index=False)
+        print (eco + '.shp merged with ' + scen_id +
+               "_best.csv and puvsp.dat, saved as " + eco +
+               "_w_best_and_amt.shp file")
+        print ('preparing plots...')
 
-    output = (shp_w_best_and_amt, best_plot)
+        # create visualization showing hexcell selection from best run solution
+        fig, ax = plt.subplots(figsize=(10, 10))
+        shp_layer.plot(column='SOLUTION', cmap='tab20', ax=ax, alpha=0.65)
+        ax.imshow(raster_layer, cmap='jet', extent=raster_extent,
+                  interpolation='nearest')
+        ax.set(title= scen_id + ': best run solution' +
+               '\nTotal Selected Ecoystem = ' + ftm_string + ' sq km')
+        ax.set_axis_off()
+
+        best_plot = plt.savefig('best_plot.png', facecolor='w', edgecolor='k',
+                                dpi=1200)
+        plt.close(fig)
+        print (scen_id + ": best plot saved as .png")
+
+        output = (shp_w_best_and_amt, best_plot)
     return output
 
 
-# In[11]:
+# In[12]:
 
 
 # create function to create plot of summed solution from Marxan output, and
@@ -648,32 +749,39 @@ def get_ssolnshp_and_ssolnplot(eco, path, espg, scen_id):
     # open '_ssoln' file created by Marxan and saved to 'output' directory
     globfile = glob(os.path.normpath(os.path.join(path, 'output',
                                                   '*_ssoln*')))
-    ssoln_path = globfile[0]
-    ssoln = pd.read_csv(ssoln_path)
-    ssoln = ssoln.rename(columns={'planning_unit': 'PUID'})
+    if globfile == []:
+        output = print (
+            "ERROR: summed solutions file not found - check output/log. \n"
+            "Will need to resolve error and rerun Marxan if not completed "
+            "successfully")
+    else:
+        ssoln_path = globfile[0]
+        ssoln = pd.read_csv(ssoln_path)
+        ssoln = ssoln.rename(columns={'planning_unit': 'PUID'})
 
-    # merge ssoln df to shp layer
-    shp_layer.insert(0, 'PUID', range(1, 1 + len(shp_layer)))
-    shp_layer = shp_layer.merge(ssoln, on='PUID')
-    shp_w_ssoln = shp_layer.to_file(eco + "_w_ssoln.shp", index=False)
-    print (eco + '.shp merged with ' + scen_id + "_ssoln.csv, saved as " + eco
-           + "_w_ssoln.shp file")
-    print ('preparing plots...')
+        # merge ssoln df to shp layer
+        shp_layer.insert(0, 'PUID', range(1, 1 + len(shp_layer)))
+        shp_layer = shp_layer.merge(ssoln, on='PUID')
+        shp_w_ssoln = shp_layer.to_file(eco + "_w_ssoln.shp", index=False)
+        print (eco + '.shp merged with ' + scen_id + "_ssoln.csv, saved as " + eco
+               + "_w_ssoln.shp file")
+        print ('preparing plots...')
 
-    # create visualization showing hexcell selection from summed solution
-    fig, ax = plt.subplots(figsize=(10, 10))
-    shp_layer.plot(column='number', cmap='viridis', ax=ax, alpha=0.65)
-    ax.imshow(raster_layer, cmap='jet', extent=raster_extent,
-              interpolation='nearest')
-    ax.set(title= scen_id + ': summed solution' +
-           '\n(hex cell selection frequency)')
-    ax.set_axis_off()
+        # create visualization showing hexcell selection from summed solution
+        fig, ax = plt.subplots(figsize=(10, 10))
+        shp_layer.plot(column='number', cmap='viridis', ax=ax, alpha=0.65)
+        ax.imshow(raster_layer, cmap='jet', extent=raster_extent,
+                  interpolation='nearest')
+        ax.set(title= scen_id + ': summed solution' +
+               '\n(hex cell selection frequency)')
+        ax.set_axis_off()
 
-    ssoln_plot = plt.savefig('ssoln_plot.png', facecolor='w', edgecolor='k',
-                            dpi=1200)
-    print (eco + ": ssoln plot saved as .png")
+        ssoln_plot = plt.savefig('ssoln_plot.png', facecolor='w', edgecolor='k',
+                                dpi=1200)
+        plt.close(fig)
+        print (scen_id + ": ssoln plot saved as .png")
 
-    output = (shp_w_ssoln, ssoln_plot)
+        output = (shp_w_ssoln, ssoln_plot)
     return output
 
 
