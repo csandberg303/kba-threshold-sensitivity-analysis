@@ -60,4 +60,5 @@ The workflow currently consists of two notebooks (along with a supporting notebo
 
 
 # Workflow
-![Workflow](https://github.com/csandberg303/kba-threshold-sensitivity-analysis/blob/main/assets/figures/KBA_Threshhold_Sensitivity_Analysis_-_Workflow_Diagram.png)
+![Workflow](https://github.com/csandberg303/kba-threshold-sensitivity-analysis/blob/main/assets/figures/KBA%20Threshhold%20Sensitivity%20Analysis%20-%20Workflow%20Diagram.png)
+
