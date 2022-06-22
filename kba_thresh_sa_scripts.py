@@ -500,8 +500,7 @@ def get_marxan_input_files(eco, files_to_get, scen_id):
 # set crs of shp and tif to ESPG 5070 and save as new files, then use to
 # create output plots based on 'best_run' and 'summed_solutions'
 
-def get_output_plots(path, eco, espg, target2, scen_id):
-
+def get_output_plots_marxan_1810 (path, eco, espg, target2, scen_id, us_m2):
 
     """
     To set crs of shp and tif to ESPG 5070, add columns to shp and save as new
@@ -524,6 +523,262 @@ def get_output_plots(path, eco, espg, target2, scen_id):
 
     scen_id : str
     scenario id, info to be included as prefix on generated output
+
+    us_m2 : float
+    total extent of ecosystem in m_2
+
+    -------
+    returned_data : updated shp and tif (and more????)
+
+
+    """
+
+#     best_marxan_1810_path = glob(os.path.normpath(os.path.join(ecotest_data_path, 'output', '*_best.dat')))
+#     best_marxan_1810 = pd.read_csv(best_marxan_1810_path[0], header=None, index_col=False)
+#     best_marxan_1810.columns = ['pu']
+
+#     puvsp_path = os.path.normpath(os.path.join(ecotest_data_path, 'input', 'puvsp.dat'))
+#     puvsp_dat = pd.read_csv(puvsp_path)
+#     puvsp_dat
+
+#     best_mx1810_w_amt = pd.merge(puvsp_dat, best_marxan_1810, on ='pu', how ='inner')
+#     best_mx1810_w_amt
+
+
+    ### begin orig plots formula (not marxan1810)
+
+    # first test for output files, to see if run completed successfully
+    # open '_best' file created by Marxan and saved to 'output' directory
+    globfile_best = glob(os.path.normpath(os.path.join(path, 'output',
+                                                       '*_best*')))
+
+    if globfile_best == []:
+        output = print (scen_id + ": ERROR: best run file not found - check "
+                        "output/log. \nWill need to resolve error and rerun "
+                        "Marxan if final output files have not completed "
+                        "successfully")
+    else:
+
+        # open the shp file saved at 'path/source_data' location
+        shp_data_path = os.path.join(path, "source_data", eco + '.shp')
+        shp_layer = gpd.read_file(shp_data_path)
+        # reproject CRS of shp
+        shp_layer_crs = shp_layer.to_crs(epsg=espg)
+        # create new .shp file
+    #     shp_espg_file =
+        shp_layer_crs.to_file(eco + "_espg_" + espg + ".shp",
+                                              index=False)
+        shp_layer_crs_path = os.path.join(os.getcwd(),
+                                          eco + "_espg_" + espg +'.shp')
+
+        if os.path.exists(shp_layer_crs_path):
+            print(scen_id + ': PU shapefile reprojected to ESPG: ' + espg +
+                  " and saved to 'source_data'")
+        else:
+            print(scen_id + (": Error: reprojected shapefile was not able to"
+                  "be saved"))
+
+        # open the tif file saved at 'path/source_data' location
+        tif_data_path = os.path.join(path, "source_data", eco + '.tif')
+        tif_layer = rxr.open_rasterio(tif_data_path, masked=True).squeeze()
+        # reproject CRS of tif; first create a rasterio crs object
+        crs_espg = CRS.from_string('EPSG:' + espg)
+        # then reproject tif using the crs object
+        tif_layer_crs = tif_layer.rio.reproject(crs_espg)
+        # create path that new tif file will be saved to
+        tif_layer_crs_path = os.path.join(os.getcwd(),
+                                          eco + "_espg_" + espg + ".tif")
+        # create new .tif file
+        tif_layer_crs.rio.to_raster(tif_layer_crs_path)
+
+        if os.path.exists(tif_layer_crs_path):
+            print(scen_id + ': Raster reprojected to ESPG: ' + espg +
+                  " and saved to 'source_data'")
+        else:
+            print(scen_id + (": Error: reprojected raster was not able to be "
+                             "saved"))
+
+        # define raster extent for plotting
+        raster_extent = plotting_extent(tif_layer_crs,
+                                        tif_layer_crs.rio.transform())
+
+        # open best run info from Marxan 1810 run
+        best_run_path = globfile_best[0]
+        best_marxan_1810 = pd.read_csv(globfile_best[0], header=None, index_col=False)
+        best_marxan_1810.columns = ['PUID']
+        best_marxan_1810['SOLUTION'] = 1
+
+        # merge best_run df to shp layer
+        shp_layer_crs.insert(0, 'PUID', range(1, 1 + len(shp_layer_crs)))
+        shp_layer_crs = shp_layer_crs.merge(best_marxan_1810, how="left", on='PUID')
+
+
+        # open 'puvsp.dat' and merge with shp layer to get 'amount' from puvsp
+        puvsp_path = os.path.normpath(os.path.join(path, 'input',
+                                                   'puvsp.dat'))
+        puvsp = pd.read_csv(puvsp_path)
+        puvsp = puvsp.rename(columns={'pu': 'PUID'})
+        shp_layer_crs = shp_layer_crs.merge(puvsp, on='PUID')
+
+        ### not sure this line is needed, if marxan 1810 can use target2?
+#         shp_layer_crs.insert(15, 'prop of total', shp_layer_crs['amount']/us_m2, allow_duplicates=True)
+        ###
+
+        # merged_shp_layer.info()
+        # shp_layer_crs.insert(0, 'PUID', range(1, 1 + len(shp_layer_crs)))
+        # # create visualization showing hexcell selection from best run solution
+
+#         fig, ax = plt.subplots(figsize=(10, 10))
+
+#         merged_shp_layer.plot(column='SOLUTION', cmap='viridis', ax=ax, alpha=0.65)
+#         merged_shp_layer.plot(column='prop of total', cmap='plasma', ax=ax, alpha=0.65)
+
+#         # ax.set(title=fig_title_txt)
+#         ax.set_axis_off()
+#         cx.add_basemap(ax=ax, crs=shp_layer.crs)
+#         ax.imshow(tif_layer_crs, cmap='jet', extent=raster_extent,
+#           interpolation='nearest')
+#         plt.savefig((scen_id + ' best_plot.png'), facecolor='w',
+#                     edgecolor='k', dpi=1200)
+#         plt.close(fig)
+#         print (scen_id + ": best plot saved as .png\n")
+###
+
+        # get metrics to include in figtitle
+        # total amount (m2) of ecosystem included in selection
+        best_amt_select = shp_layer_crs.query("SOLUTION == 1")['amount'].sum()
+        best_amt_select_km = best_amt_select/1000000
+        best_amt_select_string = str("{:,.3f}".format(best_amt_select))
+        best_amt_select_km_string = str("{:,.3f}".format(best_amt_select_km))
+
+        # get total extent of ecosystem (from the amount column, in puvsp.dat)
+        eco_extent = shp_layer_crs.query("SOLUTION < 2")['amount'].sum()
+        eco_extent_km = eco_extent/1000000
+        eco_extent_string = str("{:,.3f}".format(eco_extent))
+        eco_extent_km_string = str("{:,.3f}".format(eco_extent_km))
+
+        # set target2 value as string, for inclusion in figure title
+        target2_km = target2/1000000
+        target2_string = str("{:,.3f}".format(target2))
+        target2_km_string = str("{:,.3f}".format(target2_km))
+
+
+        ft1 = scen_id + ": best run solution\n"
+        ft2 = "Total Extent: " + eco_extent_string + " sq m (" + eco_extent_km_string + " sq km)\n"
+        ft3 = "KBA target: " + target2_string + " sq m (" + target2_km_string + " sq km)\n"
+        ft4 = "Total Selected Ecosystem: " + best_amt_select_string + " sq m (" + best_amt_select_km_string + "sq km)"
+
+        fig_title_txt = ft1 + ft2 + ft3 + ft4
+
+        # save merged shp as new file
+        shp_w_best_and_amt = shp_layer_crs.to_file(eco + "_w_best.shp",
+                                                   index=False)
+        print (scen_id + ': ' + eco + '.shp merged with ' + scen_id +
+               "_best.csv and puvsp.dat, saved as " + eco +
+               "_w_best_and_amt_plus_prop_for_heatmap.shp file")
+        print ('preparing plots...')
+
+        # create visualization showing hexcell selection from best run solution
+        fig, ax = plt.subplots(figsize=(10, 10))
+
+#         shp_layer_crs.plot(column='SOLUTION', cmap='binary', ax=ax, alpha=0.50)
+        shp_layer_crs.plot(column='SOLUTION', cmap='pink', ax=ax, alpha=0.50) # SHOWS BEST RUN SELECTION orig used viridis
+#         shp_layer_crs.plot(column='prop of total', cmap='spring', ax=ax, alpha=0.50) # SHOWS HEAT MAP PROPORTION OF TOTAL
+        ax.set(title=fig_title_txt)
+        ax.set_axis_off()
+        cx.add_basemap(ax=ax, crs=shp_layer.crs)
+        ax.imshow(tif_layer_crs, cmap='jet', extent=raster_extent,
+          interpolation='nearest')
+        plt.savefig((scen_id + ' best_plot_marxan1810.png'), facecolor='w',
+                    edgecolor='k', dpi=1200)
+        plt.close(fig)
+        print (scen_id + ": 'best_plot_marxan1810' saved as .png\n")
+
+    ###
+# DONT BOTHER WITH SSOLN FOR MARXAN 1810 FILES (YET)
+#     # open '_ssoln' file created by Marxan and saved to 'output' directory
+#     globfile_ssoln = glob(os.path.normpath(os.path.join(path, 'output',
+#                                                         '*_ssoln*')))
+#     if globfile_ssoln == []:
+#         output = print (scen_id + ": ERROR: ssoln file not found - check "
+#                         "output/log. \nWill need to resolve error and rerun "
+#                         "Marxan if final output files have not completed "
+#                         "successfully")
+#     else:
+#         ssoln_path = globfile_ssoln[0]
+#         ssoln = pd.read_csv(ssoln_path)
+#         ssoln = ssoln.rename(columns={'planning_unit': 'PUID'})
+
+#         # merge ssoln df to shp layer
+# #         shp_layer_crs.insert(0, 'PUID', range(1, 1 + len(shp_layer_crs)))
+#         shp_layer_crs = shp_layer_crs.merge(ssoln, on='PUID')
+#         shp_layer_crs.to_file(eco + "_w_best_and_ssoln.shp", index=False)
+
+#         merged_shp_layer_path = os.path.normpath(
+#             os.path.join(os.getcwd(), eco + "_w_best_and_ssoln.shp"))
+
+
+#         if os.path.exists(merged_shp_layer_path):
+#             print(scen_id + (": Shapefile merged with best, puvsp and ssoln, "
+#                              "and saved to 'source_data'"))
+#         else:
+#             print(scen_id + ": merged shapefile was not able to be saved")
+
+#         print (eco + '.shp merged with ' + scen_id + "puvsp.dat, best.csv and"
+#                " ssoln.csv, saved as " + scen_id +
+#                "_w_best_and_ssoln.shp file")
+#         print ('preparing plots...')
+
+#         # create visualization showing hexcell selection from summed solution
+#         fig2, ax2 = plt.subplots(figsize=(10, 10))
+#         shp_layer_crs.plot(column='number', cmap='viridis', ax=ax2, alpha=0.65)
+#         ax2.imshow(tif_layer_crs, cmap='jet', extent=raster_extent,
+#                   interpolation='nearest')
+#         ax2.set(title= scen_id + ': summed solution' +
+#                '\n(hex cell selection frequency)')
+#         ax2.set_axis_off()
+#         cx.add_basemap(ax2, crs=shp_layer.crs)
+
+#         plt.savefig((scen_id + 'ssoln_plot.png'), facecolor='w',
+#                     edgecolor='k', dpi=1200)
+#         plt.close(fig2)
+#         print (scen_id + ": ssoln plot saved as .png\n")
+
+#         output
+
+
+# In[11]:
+
+
+# set crs of shp and tif to ESPG 5070 and save as new files, then use to
+# create output plots based on 'best_run' and 'summed_solutions'
+
+def get_output_plots (path, eco, espg, target2, scen_id, us_m2):
+
+    """
+    To set crs of shp and tif to ESPG 5070, add columns to shp and save as new
+    files
+
+    Parameters
+    ----------
+    path : str
+    filepath to ecotest subdirectory
+
+    eco : str
+    the abbreviated one word short name used for ecosystem being analyzed;
+    identifies a subdirectory of the timestamped marxan run directory
+
+    espg : str
+    espg number (we're using ESPG:5070)
+
+    target2: float
+    minimum clumpsize of area, in order to be included in solution (*KBA*)
+
+    scen_id : str
+    scenario id, info to be included as prefix on generated output
+
+    us_m2 : float
+    total extent of ecosystem in m_2
 
     -------
     returned_data : updated shp and tif (and more????)
@@ -616,6 +871,28 @@ def get_output_plots(path, eco, espg, target2, scen_id):
         puvsp = puvsp.rename(columns={'pu': 'PUID'})
         shp_layer_crs = shp_layer_crs.merge(puvsp, on='PUID')
 
+        ###
+        shp_layer_crs.insert(14, 'prop of total', shp_layer_crs['amount']/us_m2, allow_duplicates=True)
+        # merged_shp_layer.info()
+        # shp_layer_crs.insert(0, 'PUID', range(1, 1 + len(shp_layer_crs)))
+        # # create visualization showing hexcell selection from best run solution
+
+#         fig, ax = plt.subplots(figsize=(10, 10))
+
+#         merged_shp_layer.plot(column='SOLUTION', cmap='viridis', ax=ax, alpha=0.65)
+#         merged_shp_layer.plot(column='prop of total', cmap='plasma', ax=ax, alpha=0.65)
+
+#         # ax.set(title=fig_title_txt)
+#         ax.set_axis_off()
+#         cx.add_basemap(ax=ax, crs=shp_layer.crs)
+#         ax.imshow(tif_layer_crs, cmap='jet', extent=raster_extent,
+#           interpolation='nearest')
+#         plt.savefig((scen_id + ' best_plot.png'), facecolor='w',
+#                     edgecolor='k', dpi=1200)
+#         plt.close(fig)
+#         print (scen_id + ": best plot saved as .png\n")
+###
+
         # get metrics to include in figtitle
         # total amount (m2) of ecosystem included in selection
         best_amt_select = shp_layer_crs.query("SOLUTION == 1")['amount'].sum()
@@ -636,89 +913,121 @@ def get_output_plots(path, eco, espg, target2, scen_id):
 
 
         ft1 = scen_id + ": best run solution\n"
+        hm_ft1 = eco + '\n'
         ft2 = "Total Extent: " + eco_extent_string + " sq m (" + eco_extent_km_string + " sq km)\n"
         ft3 = "KBA target: " + target2_string + " sq m (" + target2_km_string + " sq km)\n"
-        ft4 = "Total Selected Ecosystem: " + best_amt_select_string + " sq m (" + best_amt_select_km_string + "sq km)"
+        ft4 = "Total Selected Ecosystem (30% of Total Extent):\n" + best_amt_select_string + " sq m (" + best_amt_select_km_string + "sq km)"
 
-        fig_title_txt = ft1 + ft2 + ft3 + ft4
+        best_fig_title_txt = ft1 + ft2 + ft3 + ft4
+        heatmap_only_fig_title_txt = hm_ft1 + ft3
 
         # save merged shp as new file
         shp_w_best_and_amt = shp_layer_crs.to_file(eco + "_w_best.shp",
                                                    index=False)
         print (scen_id + ': ' + eco + '.shp merged with ' + scen_id +
                "_best.csv and puvsp.dat, saved as " + eco +
-               "_w_best_and_amt.shp file")
+               "_w_best_and_amt_plus_prop_for_heatmap.shp file")
         print ('preparing plots...')
 
-        # create visualization showing hexcell selection from best run solution
+        # create visualizations showing hexcell selection from best run solution
+        # 1ST PLOT (SHOWS 4 LAYERS) - HEATMAP, BEST SELECTION, RASTER, AND BASEMAP
         fig, ax = plt.subplots(figsize=(10, 10))
-
-        shp_layer_crs.plot(column='SOLUTION', cmap='viridis', ax=ax, alpha=0.65)
-
-        ax.set(title=fig_title_txt)
+        shp_layer_crs.plot(column='SOLUTION', cmap='pink', ax=ax, alpha=0.50) # SHOWS BEST RUN SELECTION orig used viridis
+        shp_layer_crs.plot(column='prop of total', cmap='RdYlGn', ax=ax, alpha=0.50) # SHOWS HEAT MAP PROPORTION OF TOTAL
+        ax.set(title=best_fig_title_txt)
         ax.set_axis_off()
         cx.add_basemap(ax=ax, crs=shp_layer.crs)
         ax.imshow(tif_layer_crs, cmap='jet', extent=raster_extent,
           interpolation='nearest')
-        plt.savefig((scen_id + ' best_plot.png'), facecolor='w',
+        plt.savefig((scen_id + '_best_plot_w_heatmap_and_bestrun_over_raster.png'), facecolor='w',
                     edgecolor='k', dpi=1200)
         plt.close(fig)
-        print (scen_id + ": best plot saved as .png\n")
+        print (scen_id + ": best_plot_w_heatmap_and_bestrun_over_raster saved as .png\n")
+
+        # 2ND PLOT (SHOWS 3 LAYERS) - HEATMAP, RASTER, AND BASEMAP
+        fig, ax = plt.subplots(figsize=(10, 10))
+#         shp_layer_crs.plot(column='SOLUTION', cmap='pink', ax=ax, alpha=0.50) # SHOWS BEST RUN SELECTION orig used viridis
+        shp_layer_crs.plot(column='prop of total', cmap='RdYlGn', ax=ax, alpha=0.50) # SHOWS HEAT MAP PROPORTION OF TOTAL
+        ax.set(title=heatmap_only_fig_title_txt) # NOTE: SPECIAL TEXT IF NOT USING BEST SOLUTION IN PLOT
+        ax.set_axis_off()
+        cx.add_basemap(ax=ax, crs=shp_layer.crs)
+        ax.imshow(tif_layer_crs, cmap='jet', extent=raster_extent,
+          interpolation='nearest')
+        plt.savefig((scen_id + '_plot_w_heatmap_over_raster.png'), facecolor='w',
+                    edgecolor='k', dpi=1200)
+        plt.close(fig)
+        print (scen_id + ": plot_w_heatmap_over_raster saved as .png\n")
+
+        # 3RD PLOT (SHOWS 3 LAYERS) - BEST SELECTION, RASTER, AND BASEMAP
+        fig, ax = plt.subplots(figsize=(10, 10))
+        shp_layer_crs.plot(column='SOLUTION', cmap='pink', ax=ax, alpha=0.50) # SHOWS BEST RUN SELECTION orig used viridis
+#         shp_layer_crs.plot(column='prop of total', cmap='RdYlGn', ax=ax, alpha=0.50) # SHOWS HEAT MAP PROPORTION OF TOTAL
+        ax.set(title=best_fig_title_txt)
+        ax.set_axis_off()
+        cx.add_basemap(ax=ax, crs=shp_layer.crs)
+        ax.imshow(tif_layer_crs, cmap='jet', extent=raster_extent,
+          interpolation='nearest')
+        plt.savefig((scen_id + '_best_plot_w_bestrun_over_raster.png'), facecolor='w',
+                    edgecolor='k', dpi=1200)
+        plt.close(fig)
+        print (scen_id + ": best_plot_w_bestrun_over_raster saved as .png\n")
+
 
     ###
+    # I'M COMMENTING OUT THE SSOLN PLOT, AS I DON'T THINK IT'LL BE USED?
 
-    # open '_ssoln' file created by Marxan and saved to 'output' directory
-    globfile_ssoln = glob(os.path.normpath(os.path.join(path, 'output',
-                                                        '*_ssoln*')))
-    if globfile_ssoln == []:
-        output = print (scen_id + ": ERROR: ssoln file not found - check "
-                        "output/log. \nWill need to resolve error and rerun "
-                        "Marxan if final output files have not completed "
-                        "successfully")
-    else:
-        ssoln_path = globfile_ssoln[0]
-        ssoln = pd.read_csv(ssoln_path)
-        ssoln = ssoln.rename(columns={'planning_unit': 'PUID'})
+#     # open '_ssoln' file created by Marxan and saved to 'output' directory
+#     globfile_ssoln = glob(os.path.normpath(os.path.join(path, 'output',
+#                                                         '*_ssoln*')))
+#     if globfile_ssoln == []:
+#         output = print (scen_id + ": ERROR: ssoln file not found - check "
+#                         "output/log. \nWill need to resolve error and rerun "
+#                         "Marxan if final output files have not completed "
+#                         "successfully")
+#     else:
+#         ssoln_path = globfile_ssoln[0]
+#         ssoln = pd.read_csv(ssoln_path)
+#         ssoln = ssoln.rename(columns={'planning_unit': 'PUID'})
 
-        # merge ssoln df to shp layer
-#         shp_layer_crs.insert(0, 'PUID', range(1, 1 + len(shp_layer_crs)))
-        shp_layer_crs = shp_layer_crs.merge(ssoln, on='PUID')
-        shp_layer_crs.to_file(eco + "_w_best_and_ssoln.shp", index=False)
+#         # merge ssoln df to shp layer
+# #         shp_layer_crs.insert(0, 'PUID', range(1, 1 + len(shp_layer_crs)))
+#         shp_layer_crs = shp_layer_crs.merge(ssoln, on='PUID')
+#         shp_layer_crs.to_file(eco + "_w_best_and_ssoln.shp", index=False)
 
-        merged_shp_layer_path = os.path.normpath(
-            os.path.join(os.getcwd(), eco + "_w_best_and_ssoln.shp"))
-
-
-        if os.path.exists(merged_shp_layer_path):
-            print(scen_id + (": Shapefile merged with best, puvsp and ssoln, "
-                             "and saved to 'source_data'"))
-        else:
-            print(scen_id + ": merged shapefile was not able to be saved")
-
-        print (eco + '.shp merged with ' + scen_id + "puvsp.dat, best.csv and"
-               " ssoln.csv, saved as " + scen_id +
-               "_w_best_and_ssoln.shp file")
-        print ('preparing plots...')
-
-        # create visualization showing hexcell selection from summed solution
-        fig2, ax2 = plt.subplots(figsize=(10, 10))
-        shp_layer_crs.plot(column='number', cmap='viridis', ax=ax2, alpha=0.65)
-        ax2.imshow(tif_layer_crs, cmap='jet', extent=raster_extent,
-                  interpolation='nearest')
-        ax2.set(title= scen_id + ': summed solution' +
-               '\n(hex cell selection frequency)')
-        ax2.set_axis_off()
-        cx.add_basemap(ax2, crs=shp_layer.crs)
-
-        plt.savefig((scen_id + 'ssoln_plot.png'), facecolor='w',
-                    edgecolor='k', dpi=1200)
-        plt.close(fig2)
-        print (scen_id + ": ssoln plot saved as .png\n")
-
-#         output
+#         merged_shp_layer_path = os.path.normpath(
+#             os.path.join(os.getcwd(), eco + "_w_best_and_ssoln.shp"))
 
 
-# In[11]:
+#         if os.path.exists(merged_shp_layer_path):
+#             print(scen_id + (": Shapefile merged with best, puvsp and ssoln, "
+#                              "and saved to 'source_data'"))
+#         else:
+#             print(scen_id + ": merged shapefile was not able to be saved")
+
+#         print (eco + '.shp merged with ' + scen_id + "puvsp.dat, best.csv and"
+#                " ssoln.csv, saved as " + scen_id +
+#                "_w_best_and_ssoln.shp file")
+#         print ('preparing plots...')
+
+#         # create visualization showing hexcell selection from summed solution
+#         fig2, ax2 = plt.subplots(figsize=(10, 10))
+#         shp_layer_crs.plot(column='number', cmap='viridis', ax=ax2, alpha=0.65)
+#         ax2.imshow(tif_layer_crs, cmap='jet', extent=raster_extent,
+#                   interpolation='nearest')
+#         ax2.set(title= scen_id + ': summed solution' +
+#                '\n(hex cell selection frequency)')
+#         ax2.set_axis_off()
+#         cx.add_basemap(ax2, crs=shp_layer.crs)
+
+#         plt.savefig((scen_id + 'ssoln_plot.png'), facecolor='w',
+#                     edgecolor='k', dpi=1200)
+#         plt.close(fig2)
+#         print (scen_id + ": ssoln plot saved as .png\n")
+
+# #         output
+
+
+# In[12]:
 
 
 # TO CREATE summary of the marxan run, incl info from the output file scenario
