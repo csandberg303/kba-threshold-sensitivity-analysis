@@ -500,7 +500,7 @@ def get_marxan_input_files(eco, files_to_get, scen_id):
 # set crs of shp and tif to ESPG 5070 and save as new files, then use to
 # create output plots based on 'best_run' and 'summed_solutions'
 
-def get_output_plots_marxan_1810 (path, eco, espg, target2, scen_id, us_m2):
+def get_output_plots_marxan_1810(path, eco, espg, target2, scen_id, us_m2):
 
     """
     To set crs of shp and tif to ESPG 5070, add columns to shp and save as new
@@ -552,11 +552,10 @@ def get_output_plots_marxan_1810 (path, eco, espg, target2, scen_id, us_m2):
     globfile_best = glob(os.path.normpath(os.path.join(path, 'output',
                                                        '*_best*')))
 
-    if globfile_best == []:
-        output = print (scen_id + ": ERROR: best run file not found - check "
-                        "output/log. \nWill need to resolve error and rerun "
-                        "Marxan if final output files have not completed "
-                        "successfully")
+    if os.stat(globfile_best[0]).st_size == 0 or globfile_best == []:
+        print (scen_id + ": ERROR: best run file not found (or is empty) - "
+               "check output/log. \nWill need to resolve error and rerun "
+               "Marxan if final output files have not completed successfully")
     else:
 
         # open the shp file saved at 'path/source_data' location
@@ -612,7 +611,6 @@ def get_output_plots_marxan_1810 (path, eco, espg, target2, scen_id, us_m2):
         shp_layer_crs.insert(0, 'PUID', range(1, 1 + len(shp_layer_crs)))
         shp_layer_crs = shp_layer_crs.merge(best_marxan_1810, how="left", on='PUID')
 
-
         # open 'puvsp.dat' and merge with shp layer to get 'amount' from puvsp
         puvsp_path = os.path.normpath(os.path.join(path, 'input',
                                                    'puvsp.dat'))
@@ -623,26 +621,6 @@ def get_output_plots_marxan_1810 (path, eco, espg, target2, scen_id, us_m2):
         ### not sure this line is needed, if marxan 1810 can use target2?
 #         shp_layer_crs.insert(15, 'prop of total', shp_layer_crs['amount']/us_m2, allow_duplicates=True)
         ###
-
-        # merged_shp_layer.info()
-        # shp_layer_crs.insert(0, 'PUID', range(1, 1 + len(shp_layer_crs)))
-        # # create visualization showing hexcell selection from best run solution
-
-#         fig, ax = plt.subplots(figsize=(10, 10))
-
-#         merged_shp_layer.plot(column='SOLUTION', cmap='viridis', ax=ax, alpha=0.65)
-#         merged_shp_layer.plot(column='prop of total', cmap='plasma', ax=ax, alpha=0.65)
-
-#         # ax.set(title=fig_title_txt)
-#         ax.set_axis_off()
-#         cx.add_basemap(ax=ax, crs=shp_layer.crs)
-#         ax.imshow(tif_layer_crs, cmap='jet', extent=raster_extent,
-#           interpolation='nearest')
-#         plt.savefig((scen_id + ' best_plot.png'), facecolor='w',
-#                     edgecolor='k', dpi=1200)
-#         plt.close(fig)
-#         print (scen_id + ": best plot saved as .png\n")
-###
 
         # get metrics to include in figtitle
         # total amount (m2) of ecosystem included in selection
