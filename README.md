@@ -10,7 +10,7 @@ Sensitivity Analysis of KBA Ecosystem Criteria. A Study Project in Collaboration
 * [Elsa Culler - mentor](https://github.com/eculler)
 
 # License
-We are using the standard Apache 2.0 License.
+We are using the GNU General Public License v2.0.
 
 # Purpose of the project
 Systematic Conservation Planning is a field of research that uses GIS and Python for spatial analysis, with the purpose of strategically identifying areas that meet a given conservation goal. This occurs by bringing collected data together into an iterative workflow to define areas that successfully meet the required criteria. Depending on the conservation goal, data can be analyzed from a diverse range of sources including species populations, vegetative land cover, nesting sites, seasonal feeding patterns or even the location of historic cultural heritage sites. Results of the analysis are shared with key stakeholders and decision makers, enabling them to efficiently direct limited resources towards solutions with the lowest costs and greatest chance for long term ecological success.
@@ -47,6 +47,9 @@ Here is the command line script necessary for the installation above:
 * xarray
 * rioxarray
 
+# Running the Notebooks
+The workflow currently consists of two notebooks (along with a supporting notebook with functions).  A user would run the two in sequence, starting with '1-set_initial_directories.ipynb' followed by '2-continue_after_saving_shapefiles_to_dir.ipynb".  The purpose of the first notebook is to set up an initial working directory 'earth-analytics\data\kba_thresh_sa'.  Inside this directory is another directory 'shp_hex', which is where the planning unit shapefiles should be stored.  Currently the ask is for users to manually copy thier GIS-produced shapefiles to this 'shp_hex' directory between running the two notebooks.  The workflow then picks up in the second notebook, where functions will prepare the directories populated with input files needed for marxan analysis.
+
 # Data
 * Raster dataset featuring US ecosystems at 30 m spatial resolution, provided by NatureServe.
 * Shapefile with a network of 7 sq. mile hexagons covering North America, also provided by NatureServe.
@@ -57,6 +60,5 @@ Here is the command line script necessary for the installation above:
 
 
 # Workflow
+![Workflow](https://github.com/csandberg303/kba-threshold-sensitivity-analysis/blob/main/assets/figures/KBA%20Threshhold%20Sensitivity%20Analysis%20-%20Workflow%20Diagram.png)
 
-
-![Workflow](https://github.com/csandberg303/kba-threshold-sensitivity-analysis/blob/main/assets/figures/KBA_Analysis_Workflow.jpg)
