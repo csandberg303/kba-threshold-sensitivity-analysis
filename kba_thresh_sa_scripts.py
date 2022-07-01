@@ -142,7 +142,7 @@ def create_input_dat(dest, blm, numreps, numitns, runmode, heurtype, scen_id):
     f.write("VERBOSITY 3\n") # Screen output
     f.write("\n")
     f.close()
-    print(os.path.basename(dest) + ": input.dat created successfully")
+    print("  " + os.path.basename(dest) + ": input.dat created successfully")
     return output
 
 
@@ -501,7 +501,7 @@ def create_spec_dat_v4(info_df, eco, target, spf, scen_id):
     # set index, and save file as 'spec.dat'
     spec_dat = pd.DataFrame(data).set_index('id')
     output = spec_dat.to_csv('spec.dat')
-    print(scen_id + ": spec.dat file created successfully (v4)")
+    print(scen_id + ': spec.dat file created successfully (v4)')
     return output
 
 
@@ -543,7 +543,7 @@ def create_spec_dat_v4_targetloops(info_df, eco, target, spf):
     # set index, and save file as 'spec.dat'
     spec_dat = pd.DataFrame(data).set_index('id')
     output = spec_dat.to_csv('spec.dat')
-    print("spec.dat file created successfully (v4)")
+    print('  ' + eco + ': spec.dat file created successfully (v4)')
     return output
 
 
